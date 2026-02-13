@@ -34,12 +34,12 @@ const Index = () => {
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
-      fromCountry: "GB", fromCity: "East Sussex", fromPostCode: "BN27 4BN",
-      toCountry: "DE", toCity: "Karlsruhe", toPostCode: "76131",
-      weight: 6,
-      width: 35,
-      length: 25,
-      height: 25,
+      fromCountry: "GB", fromCity : "East Sussex", fromPostCode : "BN27 4BN",
+      toCountry: "DE", toCity : "Karlsruhe", toPostCode : "76131",
+      weight : 6,
+      width : 35,
+      length : 25,
+      height : 25,
     },
   });
 
