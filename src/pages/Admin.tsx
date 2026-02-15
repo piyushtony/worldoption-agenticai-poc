@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowLeft, Save, Download, Upload, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, Save, Plus, Trash2, RotateCcw } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -14,43 +14,56 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
+import { API_ENDPOINTS } from "@/config/api";
 
-type QuoteData = {
-  id: string;
+type InputQuoteData = {
   service_name: string;
   service_type_name: string;
-  category: "standard" | "express" | "dropoff";
-  optimized_customer_cost: number;
-  fuel_surcharge: number;
-  vat: number;
-  total: number;
+  no_of_packages: string;
+  chargeable_weight: string;
   pickup_date: string;
   delivery_date: string;
-  customer_cost: number;
-  increased_profit: number;
+  category: "standard" | "express" | "dropoff";
+  collection_post_code: string;
+  collection_country_code: string;
+  collection_city: string;
+  delivery_post_code: string;
+  delivery_country_code: string;
+  delivery_city: string;
+  quote_reference: string; // This acts as ID - not editable
+  customer_cost: string;
+  franchise_cost: string;
+  admin_cost: string;
+  admin_markup: string;
+  reseller_markup: string;
+  fuel_surcharge: number;
+  vat: number;
 };
 
 const Admin = () => {
-  const [quotes, setQuotes] = useState<QuoteData[]>([]);
+  const [quotes, setQuotes] = useState<InputQuoteData[]>([]);
+  const [backupQuotes, setBackupQuotes] = useState<InputQuoteData[]>([]);
   const [loading, setLoading] = useState(true);
   const [hasChanges, setHasChanges] = useState(false);
 
   useEffect(() => {
-    loadQuotes();
+    loadInputJson();
+    ensureBackupExists();
   }, []);
 
-  const loadQuotes = async () => {
+  const loadInputJson = async () => {
     try {
-      const res = await fetch("/quotes-data.json?v=" + Date.now());
+      const res = await fetch("/input.json?v=" + Date.now());
       if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-      const data = await res.json() as QuoteData[];
+      const data = await res.json() as InputQuoteData[];
       setQuotes(data);
+      setBackupQuotes(JSON.parse(JSON.stringify(data))); // Deep copy for backup
       setHasChanges(false);
     } catch (e) {
-      console.error("Failed to load quotes", e);
+      console.error("Failed to load input.json", e);
       toast({
-        title: "Error loading quotes",
-        description: "Could not read the quotes data file.",
+        title: "Error loading input.json",
+        description: "Could not read the input.json file.",
         variant: "destructive",
       });
     } finally {
@@ -58,36 +71,98 @@ const Admin = () => {
     }
   };
 
-  const updateQuote = (index: number, field: keyof QuoteData, value: string | number) => {
+  const ensureBackupExists = async () => {
+    try {
+      const backupRes = await fetch("/backup-input.json?v=" + Date.now());
+      if (!backupRes.ok) {
+        // Backup doesn't exist, create it from current input.json
+        const inputRes = await fetch("/input.json?v=" + Date.now());
+        if (inputRes.ok) {
+          const inputData = await inputRes.json();
+          // Download backup file
+          const backupJsonString = JSON.stringify(inputData, null, 2);
+          const backupBlob = new Blob([backupJsonString], { type: "application/json" });
+          const backupUrl = URL.createObjectURL(backupBlob);
+          const backupLink = document.createElement("a");
+          backupLink.href = backupUrl;
+          backupLink.download = "backup-input.json";
+          document.body.appendChild(backupLink);
+          backupLink.click();
+          document.body.removeChild(backupLink);
+          URL.revokeObjectURL(backupUrl);
+        }
+      }
+    } catch (e) {
+      console.error("Error checking backup", e);
+    }
+  };
+
+  const resetFromBackup = async () => {
+    if (confirm("Are you sure you want to reset? This will restore input.json from backup-input.json and discard all unsaved changes.")) {
+      try {
+        const response = await fetch(API_ENDPOINTS.RESET_INPUT, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const result = await response.json();
+        const data = result.data as InputQuoteData[];
+        
+        setQuotes(data);
+        setBackupQuotes(JSON.parse(JSON.stringify(data)));
+        setHasChanges(false);
+        
+        toast({
+          title: "Reset Successful",
+          description: result.message || "input.json has been restored from backup-input.json.",
+        });
+      } catch (error) {
+        console.error("Failed to reset input.json", error);
+        toast({
+          title: "Error resetting file",
+          description: error instanceof Error ? error.message : "Could not reset input.json. Make sure the server is running and backup-input.json exists.",
+          variant: "destructive",
+        });
+      }
+    }
+  };
+
+  const updateQuote = (index: number, field: keyof InputQuoteData, value: string | number) => {
     const updated = [...quotes];
     updated[index] = { ...updated[index], [field]: value };
-    
-    // Auto-calculate total if pricing fields change
-    if (field === "optimized_customer_cost" || field === "fuel_surcharge" || field === "vat") {
-      const base = field === "optimized_customer_cost" ? Number(value) : updated[index].optimized_customer_cost;
-      const fuel = field === "fuel_surcharge" ? Number(value) : updated[index].fuel_surcharge;
-      const vat = field === "vat" ? Number(value) : updated[index].vat;
-      updated[index].total = Number((base + fuel + vat).toFixed(2));
-    }
-    
     setQuotes(updated);
     setHasChanges(true);
   };
 
   const addQuote = () => {
-    const newQuote: QuoteData = {
-      id: `new-${Date.now()}`,
+    const newQuote: InputQuoteData = {
       service_name: "",
       service_type_name: "",
-      category: "standard",
-      optimized_customer_cost: 0,
-      fuel_surcharge: 0,
-      vat: 0,
-      total: 0,
+      no_of_packages: "1",
+      chargeable_weight: "0",
       pickup_date: "",
       delivery_date: "",
-      customer_cost: 0,
-      increased_profit: 0,
+      category: "standard",
+      collection_post_code: "",
+      collection_country_code: "",
+      collection_city: "",
+      delivery_post_code: "",
+      delivery_country_code: "",
+      delivery_city: "",
+      quote_reference: `NEW_${Date.now()}`,
+      customer_cost: "0",
+      franchise_cost: "0",
+      admin_cost: "0",
+      admin_markup: "0",
+      reseller_markup: "0",
+      fuel_surcharge: 0.0,
+      vat: 0.0,
     };
     setQuotes([...quotes, newQuote]);
     setHasChanges(true);
@@ -101,51 +176,38 @@ const Admin = () => {
     }
   };
 
-  const exportJSON = () => {
-    const jsonString = JSON.stringify(quotes, null, 2);
-    const blob = new Blob([jsonString], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "quotes-data.json";
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    
-    toast({
-      title: "JSON Exported",
-      description: "quotes-data.json has been downloaded. Replace the file in the public folder.",
-    });
-  };
+  const saveInputJson = async () => {
+    try {
+      const response = await fetch(API_ENDPOINTS.SAVE_INPUT, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(quotes),
+      });
 
-  const importJSON = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const text = e.target?.result as string;
-        const data = JSON.parse(text) as QuoteData[];
-        setQuotes(data);
-        setHasChanges(true);
-        toast({
-          title: "JSON Imported",
-          description: "Quotes data has been loaded. Click Save to export the updated file.",
-        });
-      } catch (error) {
-        toast({
-          title: "Import Error",
-          description: "Invalid JSON file. Please check the format.",
-          variant: "destructive",
-        });
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
-    };
-    reader.readAsText(file);
-    
-    // Reset input
-    event.target.value = "";
+
+      const result = await response.json();
+      
+      // Update backup to current saved state (for next save)
+      setBackupQuotes(JSON.parse(JSON.stringify(quotes)));
+      setHasChanges(false);
+
+      toast({
+        title: "Saved Successfully",
+        description: result.message || "input.json has been saved successfully.",
+      });
+    } catch (error) {
+      console.error("Failed to save input.json", error);
+      toast({
+        title: "Error saving file",
+        description: error instanceof Error ? error.message : "Could not save input.json. Make sure the server is running.",
+        variant: "destructive",
+      });
+    }
   };
 
   if (loading) {
@@ -153,7 +215,7 @@ const Admin = () => {
       <div className="flex min-h-screen flex-col bg-background">
         <Navbar />
         <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-10">
-          <p className="text-center text-muted-foreground">Loading quotes…</p>
+          <p className="text-center text-muted-foreground">Loading input.json…</p>
         </main>
       </div>
     );
@@ -173,33 +235,23 @@ const Admin = () => {
             </Button>
             <div>
               <h1 className="text-3xl font-extrabold tracking-tight text-primary">
-                Admin Panel
+                Admin Panel - Input Data
               </h1>
               <p className="text-sm text-muted-foreground">
-                Manage quotes data
+                Manage input.json data (used as API payload)
               </p>
             </div>
           </div>
 
           <div className="flex gap-2">
-            <Button variant="outline" onClick={exportJSON} className="gap-2">
-              <Download className="h-4 w-4" />
-              Export JSON
+            <Button
+              variant="outline"
+              onClick={resetFromBackup}
+              className="gap-2"
+            >
+              <RotateCcw className="h-4 w-4" />
+              Reset
             </Button>
-            <label>
-              <Button variant="outline" asChild className="gap-2 cursor-pointer">
-                <span>
-                  <Upload className="h-4 w-4" />
-                  Import JSON
-                </span>
-              </Button>
-              <input
-                type="file"
-                accept=".json"
-                onChange={importJSON}
-                className="hidden"
-              />
-            </label>
             <Button
               onClick={addQuote}
               variant="outline"
@@ -207,6 +259,14 @@ const Admin = () => {
             >
               <Plus className="h-4 w-4" />
               Add Quote
+            </Button>
+            <Button
+              onClick={saveInputJson}
+              className="gap-2"
+              disabled={!hasChanges}
+            >
+              <Save className="h-4 w-4" />
+              Save
             </Button>
           </div>
         </div>
@@ -220,12 +280,12 @@ const Admin = () => {
                     You have unsaved changes
                   </p>
                   <p className="text-sm text-yellow-700 dark:text-yellow-300">
-                    Click "Export JSON" to download the updated file, then replace quotes-data.json in the public folder.
+                    Click "Save" to download the updated input.json and backup-input.json files, then replace them in the public folder.
                   </p>
                 </div>
-                <Button onClick={exportJSON} className="gap-2">
+                <Button onClick={saveInputJson} className="gap-2">
                   <Save className="h-4 w-4" />
-                  Save & Export
+                  Save
                 </Button>
               </div>
             </CardContent>
@@ -234,14 +294,14 @@ const Admin = () => {
 
         <div className="space-y-6">
           {quotes.map((quote, index) => (
-            <Card key={quote.id} className="border-border/60">
+            <Card key={quote.quote_reference || index} className="border-border/60">
               <CardHeader className="pb-4">
                 <div className="flex items-center justify-between">
                   <div>
                     <CardTitle className="text-lg">
                       Quote #{index + 1} - {quote.service_name || "New Quote"}
                     </CardTitle>
-                    <CardDescription>ID: {quote.id}</CardDescription>
+                    <CardDescription>Reference: {quote.quote_reference}</CardDescription>
                   </div>
                   <Button
                     variant="destructive"
@@ -263,11 +323,12 @@ const Admin = () => {
                     </h3>
                     <div className="space-y-3">
                       <div>
-                        <Label htmlFor={`id-${index}`}>ID</Label>
+                        <Label htmlFor={`quote-ref-${index}`}>Quote Reference (ID - Read Only)</Label>
                         <Input
-                          id={`id-${index}`}
-                          value={quote.id}
-                          onChange={(e) => updateQuote(index, "id", e.target.value)}
+                          id={`quote-ref-${index}`}
+                          value={quote.quote_reference}
+                          readOnly
+                          className="bg-muted cursor-not-allowed"
                         />
                       </div>
                       <div>
@@ -290,7 +351,7 @@ const Admin = () => {
                         <Label htmlFor={`category-${index}`}>Category</Label>
                         <Select
                           value={quote.category}
-                          onValueChange={(value) => updateQuote(index, "category", value as QuoteData["category"])}
+                          onValueChange={(value) => updateQuote(index, "category", value as InputQuoteData["category"])}
                         >
                           <SelectTrigger id={`category-${index}`}>
                             <SelectValue />
@@ -302,27 +363,130 @@ const Admin = () => {
                           </SelectContent>
                         </Select>
                       </div>
-                    </div>
-                  </div>
-
-                  {/* Pricing */}
-                  <div className="space-y-4">
-                    <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-                      Pricing
-                    </h3>
-                    <div className="space-y-3">
                       <div>
-                        <Label htmlFor={`cost-${index}`}>Optimized Customer Cost (£)</Label>
+                        <Label htmlFor={`packages-${index}`}>No. of Packages</Label>
                         <Input
-                          id={`cost-${index}`}
-                          type="number"
-                          step="0.01"
-                          value={quote.optimized_customer_cost}
-                          onChange={(e) => updateQuote(index, "optimized_customer_cost", parseFloat(e.target.value) || 0)}
+                          id={`packages-${index}`}
+                          value={quote.no_of_packages}
+                          onChange={(e) => updateQuote(index, "no_of_packages", e.target.value)}
                         />
                       </div>
                       <div>
-                        <Label htmlFor={`fuel-${index}`}>Fuel Surcharge (£)</Label>
+                        <Label htmlFor={`weight-${index}`}>Chargeable Weight</Label>
+                        <Input
+                          id={`weight-${index}`}
+                          value={quote.chargeable_weight}
+                          onChange={(e) => updateQuote(index, "chargeable_weight", e.target.value)}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Collection & Delivery */}
+                  <div className="space-y-4">
+                    <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+                      Collection & Delivery
+                    </h3>
+                    <div className="space-y-3">
+                      <div>
+                        <Label htmlFor={`collection-country-${index}`}>Collection Country Code</Label>
+                        <Input
+                          id={`collection-country-${index}`}
+                          value={quote.collection_country_code}
+                          onChange={(e) => updateQuote(index, "collection_country_code", e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor={`collection-city-${index}`}>Collection City</Label>
+                        <Input
+                          id={`collection-city-${index}`}
+                          value={quote.collection_city}
+                          onChange={(e) => updateQuote(index, "collection_city", e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor={`collection-post-${index}`}>Collection Post Code</Label>
+                        <Input
+                          id={`collection-post-${index}`}
+                          value={quote.collection_post_code}
+                          onChange={(e) => updateQuote(index, "collection_post_code", e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor={`delivery-country-${index}`}>Delivery Country Code</Label>
+                        <Input
+                          id={`delivery-country-${index}`}
+                          value={quote.delivery_country_code}
+                          onChange={(e) => updateQuote(index, "delivery_country_code", e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor={`delivery-city-${index}`}>Delivery City</Label>
+                        <Input
+                          id={`delivery-city-${index}`}
+                          value={quote.delivery_city}
+                          onChange={(e) => updateQuote(index, "delivery_city", e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor={`delivery-post-${index}`}>Delivery Post Code</Label>
+                        <Input
+                          id={`delivery-post-${index}`}
+                          value={quote.delivery_post_code}
+                          onChange={(e) => updateQuote(index, "delivery_post_code", e.target.value)}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Pricing & Dates */}
+                  <div className="space-y-4">
+                    <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+                      Pricing & Dates
+                    </h3>
+                    <div className="space-y-3">
+                      <div>
+                        <Label htmlFor={`customer-cost-${index}`}>Customer Cost</Label>
+                        <Input
+                          id={`customer-cost-${index}`}
+                          value={quote.customer_cost}
+                          onChange={(e) => updateQuote(index, "customer_cost", e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor={`franchise-cost-${index}`}>Franchise Cost</Label>
+                        <Input
+                          id={`franchise-cost-${index}`}
+                          value={quote.franchise_cost}
+                          onChange={(e) => updateQuote(index, "franchise_cost", e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor={`admin-cost-${index}`}>Admin Cost</Label>
+                        <Input
+                          id={`admin-cost-${index}`}
+                          value={quote.admin_cost}
+                          onChange={(e) => updateQuote(index, "admin_cost", e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor={`admin-markup-${index}`}>Admin Markup</Label>
+                        <Input
+                          id={`admin-markup-${index}`}
+                          value={quote.admin_markup}
+                          onChange={(e) => updateQuote(index, "admin_markup", e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor={`reseller-markup-${index}`}>Reseller Markup</Label>
+                        <Input
+                          id={`reseller-markup-${index}`}
+                          value={quote.reseller_markup}
+                          onChange={(e) => updateQuote(index, "reseller_markup", e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor={`fuel-${index}`}>Fuel Surcharge</Label>
                         <Input
                           id={`fuel-${index}`}
                           type="number"
@@ -332,7 +496,7 @@ const Admin = () => {
                         />
                       </div>
                       <div>
-                        <Label htmlFor={`vat-${index}`}>VAT (£)</Label>
+                        <Label htmlFor={`vat-${index}`}>VAT</Label>
                         <Input
                           id={`vat-${index}`}
                           type="number"
@@ -342,61 +506,21 @@ const Admin = () => {
                         />
                       </div>
                       <div>
-                        <Label htmlFor={`total-${index}`}>Total (£)</Label>
-                        <Input
-                          id={`total-${index}`}
-                          type="number"
-                          step="0.01"
-                          value={quote.total}
-                          onChange={(e) => updateQuote(index, "total", parseFloat(e.target.value) || 0)}
-                          className="font-semibold"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Additional Info */}
-                  <div className="space-y-4">
-                    <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-                      Additional Information
-                    </h3>
-                    <div className="space-y-3">
-                      <div>
-                        <Label htmlFor={`pickup-${index}`}>Pickup Date (HTML)</Label>
+                        <Label htmlFor={`pickup-${index}`}>Pickup Date</Label>
                         <Input
                           id={`pickup-${index}`}
                           value={quote.pickup_date}
                           onChange={(e) => updateQuote(index, "pickup_date", e.target.value)}
-                          placeholder="Thu, 12 Feb 2026<br/>End of business day<br/>23:30<br/><b>Non-Guaranteed</b>"
+                          placeholder="Mon, 09 Feb 2026\n16:00"
                         />
                       </div>
                       <div>
-                        <Label htmlFor={`delivery-${index}`}>Delivery Date (HTML)</Label>
+                        <Label htmlFor={`delivery-${index}`}>Delivery Date</Label>
                         <Input
                           id={`delivery-${index}`}
                           value={quote.delivery_date}
                           onChange={(e) => updateQuote(index, "delivery_date", e.target.value)}
-                          placeholder="Mon, 17 Feb 2026<br/>End of business day<br/>23:30<br/><b>Non-Guaranteed</b>"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor={`old-price-${index}`}>Customer Cost (£)</Label>
-                        <Input
-                          id={`old-price-${index}`}
-                          type="number"
-                          step="0.01"
-                          value={quote.customer_cost}
-                          onChange={(e) => updateQuote(index, "customer_cost", parseFloat(e.target.value) || 0)}
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor={`profit-${index}`}>Increased Profit (£)</Label>
-                        <Input
-                          id={`profit-${index}`}
-                          type="number"
-                          step="0.01"
-                          value={quote.increased_profit}
-                          onChange={(e) => updateQuote(index, "increased_profit", parseFloat(e.target.value) || 0)}
+                          placeholder="Thu, 12 Feb 2026\nEnd of business day\n23:30"
                         />
                       </div>
                     </div>

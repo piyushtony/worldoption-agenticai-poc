@@ -42,6 +42,8 @@ if (isDevelopment) {
 export const API_ENDPOINTS = {
   QUOTES: `${API_BASE_URL}/quotes`,
   GET_QUOTES: `${API_BASE_URL}/quotes`, // POST endpoint to get quotes
+  SAVE_INPUT: `${API_BASE_URL}/save-input`, // POST endpoint to save input.json
+  RESET_INPUT: `${API_BASE_URL}/reset-input`, // POST endpoint to reset input.json from backup
 } as const;
 
 // Export for debugging
