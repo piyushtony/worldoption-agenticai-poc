@@ -1,5 +1,6 @@
 [
  {
+  "id": 1,
   "service_name": "UPS",
   "service_type_name": "Standard",
   "no_of_packages": "1",
@@ -23,6 +24,7 @@
   "vat": 0.0
  },
  {
+  "id": 2,
   "service_name": "FEDEX",
   "service_type_name": "Regional Economy",
   "no_of_packages": "1",
@@ -46,6 +48,7 @@
   "vat": 0.0
  },
  {
+  "id": 3,
   "service_name": "UPS",
   "service_type_name": "Standard Access Point",
   "no_of_packages": "1",
@@ -69,6 +72,7 @@
   "vat": 0.0
  },
  {
+  "id": 4,
   "service_name": "UPS",
   "service_type_name": "Express Saver",
   "no_of_packages": "1",
@@ -92,6 +96,7 @@
   "vat": 0.0
  },
  {
+  "id": 5,
   "service_name": "UPS",
   "service_type_name": "Express",
   "no_of_packages": "1",
@@ -115,6 +120,7 @@
   "vat": 0.0
  },
  {
+  "id": 6,
   "service_name": "FEDEX",
   "service_type_name": "International Economy",
   "no_of_packages": "1",
@@ -138,6 +144,7 @@
   "vat": 0.0
  },
  {
+  "id": 7,
   "service_name": "FEDEX",
   "service_type_name": "International Priority",
   "no_of_packages": "1",
@@ -161,6 +168,7 @@
   "vat": 0.0
  },
  {
+  "id": 8,
   "service_name": "UPS",
   "service_type_name": "Express Saver Access Point",
   "no_of_packages": "1",
@@ -184,6 +192,7 @@
   "vat": 0.0
  },
  {
+  "id": 9,
   "service_name": "UPS",
   "service_type_name": "Express Access Point",
   "no_of_packages": "1",
@@ -207,6 +216,7 @@
   "vat": 0.0
  },
  {
+  "id": 10,
   "service_name": "DHL",
   "service_type_name": "DHL Economy Select",
   "no_of_packages": "1",
@@ -230,6 +240,7 @@
   "vat": 0.0
  },
  {
+  "id": 11,
   "service_name": "DHL",
   "service_type_name": "DHL Express Worldwide",
   "no_of_packages": "1",
@@ -253,6 +264,7 @@
   "vat": 0.0
  },
  {
+  "id": 12,
   "service_name": "DHL",
   "service_type_name": "DHL Worldwide Express 12:00",
   "no_of_packages": "1",

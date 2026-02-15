@@ -17,6 +17,7 @@ import { toast } from "@/hooks/use-toast";
 import { API_ENDPOINTS } from "@/config/api";
 
 type InputQuoteData = {
+  id: number; // Unique identifier - not editable
   service_name: string;
   service_type_name: string;
   no_of_packages: string;
@@ -30,7 +31,7 @@ type InputQuoteData = {
   delivery_post_code: string;
   delivery_country_code: string;
   delivery_city: string;
-  quote_reference: string; // This acts as ID - not editable
+  quote_reference: string;
   customer_cost: string;
   franchise_cost: string;
   admin_cost: string;
@@ -133,15 +134,21 @@ const Admin = () => {
     }
   };
 
-  const updateQuote = (index: number, field: keyof InputQuoteData, value: string | number) => {
-    const updated = [...quotes];
-    updated[index] = { ...updated[index], [field]: value };
+  const updateQuote = (id: number, field: keyof InputQuoteData, value: string | number) => {
+    const updated = quotes.map(quote => 
+      quote.id === id ? { ...quote, [field]: value } : quote
+    );
     setQuotes(updated);
     setHasChanges(true);
   };
 
   const addQuote = () => {
+    // Find the maximum ID and increment it
+    const maxId = quotes.length > 0 ? Math.max(...quotes.map(q => q.id)) : 0;
+    const newId = maxId + 1;
+    
     const newQuote: InputQuoteData = {
+      id: newId,
       service_name: "",
       service_type_name: "",
       no_of_packages: "1",
@@ -155,7 +162,7 @@ const Admin = () => {
       delivery_post_code: "",
       delivery_country_code: "",
       delivery_city: "",
-      quote_reference: `NEW_${Date.now()}`,
+      quote_reference: `GB_DE_${new Date().toLocaleDateString('en-GB').replace(/\//g, '/')} ${new Date().toLocaleTimeString()}`,
       customer_cost: "0",
       franchise_cost: "0",
       admin_cost: "0",
@@ -168,9 +175,9 @@ const Admin = () => {
     setHasChanges(true);
   };
 
-  const deleteQuote = (index: number) => {
+  const deleteQuote = (id: number) => {
     if (confirm("Are you sure you want to delete this quote?")) {
-      const updated = quotes.filter((_, i) => i !== index);
+      const updated = quotes.filter(q => q.id !== id);
       setQuotes(updated);
       setHasChanges(true);
     }
@@ -293,20 +300,20 @@ const Admin = () => {
         )}
 
         <div className="space-y-6">
-          {quotes.map((quote, index) => (
-            <Card key={quote.quote_reference || index} className="border-border/60">
+          {quotes.map((quote) => (
+            <Card key={quote.id} className="border-border/60">
               <CardHeader className="pb-4">
                 <div className="flex items-center justify-between">
                   <div>
                     <CardTitle className="text-lg">
-                      Quote #{index + 1} - {quote.service_name || "New Quote"}
+                      Quote ID: {quote.id} - {quote.service_name || "New Quote"}
                     </CardTitle>
                     <CardDescription>Reference: {quote.quote_reference}</CardDescription>
                   </div>
                   <Button
                     variant="destructive"
                     size="sm"
-                    onClick={() => deleteQuote(index)}
+                    onClick={() => deleteQuote(quote.id)}
                     className="gap-2"
                   >
                     <Trash2 className="h-4 w-4" />
@@ -323,37 +330,46 @@ const Admin = () => {
                     </h3>
                     <div className="space-y-3">
                       <div>
-                        <Label htmlFor={`quote-ref-${index}`}>Quote Reference (ID - Read Only)</Label>
+                        <Label htmlFor={`id-${quote.id}`}>ID (Read Only)</Label>
                         <Input
-                          id={`quote-ref-${index}`}
-                          value={quote.quote_reference}
+                          id={`id-${quote.id}`}
+                          type="number"
+                          value={quote.id}
                           readOnly
                           className="bg-muted cursor-not-allowed"
                         />
                       </div>
                       <div>
-                        <Label htmlFor={`service-${index}`}>Service Name</Label>
+                        <Label htmlFor={`quote-ref-${quote.id}`}>Quote Reference</Label>
                         <Input
-                          id={`service-${index}`}
+                          id={`quote-ref-${quote.id}`}
+                          value={quote.quote_reference}
+                          onChange={(e) => updateQuote(quote.id, "quote_reference", e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor={`service-${quote.id}`}>Service Name</Label>
+                        <Input
+                          id={`service-${quote.id}`}
                           value={quote.service_name}
-                          onChange={(e) => updateQuote(index, "service_name", e.target.value)}
+                          onChange={(e) => updateQuote(quote.id, "service_name", e.target.value)}
                         />
                       </div>
                       <div>
-                        <Label htmlFor={`type-${index}`}>Service Type</Label>
+                        <Label htmlFor={`type-${quote.id}`}>Service Type</Label>
                         <Input
-                          id={`type-${index}`}
+                          id={`type-${quote.id}`}
                           value={quote.service_type_name}
-                          onChange={(e) => updateQuote(index, "service_type_name", e.target.value)}
+                          onChange={(e) => updateQuote(quote.id, "service_type_name", e.target.value)}
                         />
                       </div>
                       <div>
-                        <Label htmlFor={`category-${index}`}>Category</Label>
+                        <Label htmlFor={`category-${quote.id}`}>Category</Label>
                         <Select
                           value={quote.category}
-                          onValueChange={(value) => updateQuote(index, "category", value as InputQuoteData["category"])}
+                          onValueChange={(value) => updateQuote(quote.id, "category", value as InputQuoteData["category"])}
                         >
-                          <SelectTrigger id={`category-${index}`}>
+                          <SelectTrigger id={`category-${quote.id}`}>
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -364,19 +380,19 @@ const Admin = () => {
                         </Select>
                       </div>
                       <div>
-                        <Label htmlFor={`packages-${index}`}>No. of Packages</Label>
+                        <Label htmlFor={`packages-${quote.id}`}>No. of Packages</Label>
                         <Input
-                          id={`packages-${index}`}
+                          id={`packages-${quote.id}`}
                           value={quote.no_of_packages}
-                          onChange={(e) => updateQuote(index, "no_of_packages", e.target.value)}
+                          onChange={(e) => updateQuote(quote.id, "no_of_packages", e.target.value)}
                         />
                       </div>
                       <div>
-                        <Label htmlFor={`weight-${index}`}>Chargeable Weight</Label>
+                        <Label htmlFor={`weight-${quote.id}`}>Chargeable Weight</Label>
                         <Input
-                          id={`weight-${index}`}
+                          id={`weight-${quote.id}`}
                           value={quote.chargeable_weight}
-                          onChange={(e) => updateQuote(index, "chargeable_weight", e.target.value)}
+                          onChange={(e) => updateQuote(quote.id, "chargeable_weight", e.target.value)}
                         />
                       </div>
                     </div>
@@ -389,51 +405,51 @@ const Admin = () => {
                     </h3>
                     <div className="space-y-3">
                       <div>
-                        <Label htmlFor={`collection-country-${index}`}>Collection Country Code</Label>
+                        <Label htmlFor={`collection-country-${quote.id}`}>Collection Country Code</Label>
                         <Input
-                          id={`collection-country-${index}`}
+                          id={`collection-country-${quote.id}`}
                           value={quote.collection_country_code}
-                          onChange={(e) => updateQuote(index, "collection_country_code", e.target.value)}
+                          onChange={(e) => updateQuote(quote.id, "collection_country_code", e.target.value)}
                         />
                       </div>
                       <div>
-                        <Label htmlFor={`collection-city-${index}`}>Collection City</Label>
+                        <Label htmlFor={`collection-city-${quote.id}`}>Collection City</Label>
                         <Input
-                          id={`collection-city-${index}`}
+                          id={`collection-city-${quote.id}`}
                           value={quote.collection_city}
-                          onChange={(e) => updateQuote(index, "collection_city", e.target.value)}
+                          onChange={(e) => updateQuote(quote.id, "collection_city", e.target.value)}
                         />
                       </div>
                       <div>
-                        <Label htmlFor={`collection-post-${index}`}>Collection Post Code</Label>
+                        <Label htmlFor={`collection-post-${quote.id}`}>Collection Post Code</Label>
                         <Input
-                          id={`collection-post-${index}`}
+                          id={`collection-post-${quote.id}`}
                           value={quote.collection_post_code}
-                          onChange={(e) => updateQuote(index, "collection_post_code", e.target.value)}
+                          onChange={(e) => updateQuote(quote.id, "collection_post_code", e.target.value)}
                         />
                       </div>
                       <div>
-                        <Label htmlFor={`delivery-country-${index}`}>Delivery Country Code</Label>
+                        <Label htmlFor={`delivery-country-${quote.id}`}>Delivery Country Code</Label>
                         <Input
-                          id={`delivery-country-${index}`}
+                          id={`delivery-country-${quote.id}`}
                           value={quote.delivery_country_code}
-                          onChange={(e) => updateQuote(index, "delivery_country_code", e.target.value)}
+                          onChange={(e) => updateQuote(quote.id, "delivery_country_code", e.target.value)}
                         />
                       </div>
                       <div>
-                        <Label htmlFor={`delivery-city-${index}`}>Delivery City</Label>
+                        <Label htmlFor={`delivery-city-${quote.id}`}>Delivery City</Label>
                         <Input
-                          id={`delivery-city-${index}`}
+                          id={`delivery-city-${quote.id}`}
                           value={quote.delivery_city}
-                          onChange={(e) => updateQuote(index, "delivery_city", e.target.value)}
+                          onChange={(e) => updateQuote(quote.id, "delivery_city", e.target.value)}
                         />
                       </div>
                       <div>
-                        <Label htmlFor={`delivery-post-${index}`}>Delivery Post Code</Label>
+                        <Label htmlFor={`delivery-post-${quote.id}`}>Delivery Post Code</Label>
                         <Input
-                          id={`delivery-post-${index}`}
+                          id={`delivery-post-${quote.id}`}
                           value={quote.delivery_post_code}
-                          onChange={(e) => updateQuote(index, "delivery_post_code", e.target.value)}
+                          onChange={(e) => updateQuote(quote.id, "delivery_post_code", e.target.value)}
                         />
                       </div>
                     </div>
@@ -446,80 +462,80 @@ const Admin = () => {
                     </h3>
                     <div className="space-y-3">
                       <div>
-                        <Label htmlFor={`customer-cost-${index}`}>Customer Cost</Label>
+                        <Label htmlFor={`customer-cost-${quote.id}`}>Customer Cost</Label>
                         <Input
-                          id={`customer-cost-${index}`}
+                          id={`customer-cost-${quote.id}`}
                           value={quote.customer_cost}
-                          onChange={(e) => updateQuote(index, "customer_cost", e.target.value)}
+                          onChange={(e) => updateQuote(quote.id, "customer_cost", e.target.value)}
                         />
                       </div>
                       <div>
-                        <Label htmlFor={`franchise-cost-${index}`}>Franchise Cost</Label>
+                        <Label htmlFor={`franchise-cost-${quote.id}`}>Franchise Cost</Label>
                         <Input
-                          id={`franchise-cost-${index}`}
+                          id={`franchise-cost-${quote.id}`}
                           value={quote.franchise_cost}
-                          onChange={(e) => updateQuote(index, "franchise_cost", e.target.value)}
+                          onChange={(e) => updateQuote(quote.id, "franchise_cost", e.target.value)}
                         />
                       </div>
                       <div>
-                        <Label htmlFor={`admin-cost-${index}`}>Admin Cost</Label>
+                        <Label htmlFor={`admin-cost-${quote.id}`}>Admin Cost</Label>
                         <Input
-                          id={`admin-cost-${index}`}
+                          id={`admin-cost-${quote.id}`}
                           value={quote.admin_cost}
-                          onChange={(e) => updateQuote(index, "admin_cost", e.target.value)}
+                          onChange={(e) => updateQuote(quote.id, "admin_cost", e.target.value)}
                         />
                       </div>
                       <div>
-                        <Label htmlFor={`admin-markup-${index}`}>Admin Markup</Label>
+                        <Label htmlFor={`admin-markup-${quote.id}`}>Admin Markup</Label>
                         <Input
-                          id={`admin-markup-${index}`}
+                          id={`admin-markup-${quote.id}`}
                           value={quote.admin_markup}
-                          onChange={(e) => updateQuote(index, "admin_markup", e.target.value)}
+                          onChange={(e) => updateQuote(quote.id, "admin_markup", e.target.value)}
                         />
                       </div>
                       <div>
-                        <Label htmlFor={`reseller-markup-${index}`}>Reseller Markup</Label>
+                        <Label htmlFor={`reseller-markup-${quote.id}`}>Reseller Markup</Label>
                         <Input
-                          id={`reseller-markup-${index}`}
+                          id={`reseller-markup-${quote.id}`}
                           value={quote.reseller_markup}
-                          onChange={(e) => updateQuote(index, "reseller_markup", e.target.value)}
+                          onChange={(e) => updateQuote(quote.id, "reseller_markup", e.target.value)}
                         />
                       </div>
                       <div>
-                        <Label htmlFor={`fuel-${index}`}>Fuel Surcharge</Label>
+                        <Label htmlFor={`fuel-${quote.id}`}>Fuel Surcharge</Label>
                         <Input
-                          id={`fuel-${index}`}
+                          id={`fuel-${quote.id}`}
                           type="number"
                           step="0.01"
                           value={quote.fuel_surcharge}
-                          onChange={(e) => updateQuote(index, "fuel_surcharge", parseFloat(e.target.value) || 0)}
+                          onChange={(e) => updateQuote(quote.id, "fuel_surcharge", parseFloat(e.target.value) || 0)}
                         />
                       </div>
                       <div>
-                        <Label htmlFor={`vat-${index}`}>VAT</Label>
+                        <Label htmlFor={`vat-${quote.id}`}>VAT</Label>
                         <Input
-                          id={`vat-${index}`}
+                          id={`vat-${quote.id}`}
                           type="number"
                           step="0.01"
                           value={quote.vat}
-                          onChange={(e) => updateQuote(index, "vat", parseFloat(e.target.value) || 0)}
+                          onChange={(e) => updateQuote(quote.id, "vat", parseFloat(e.target.value) || 0)}
                         />
                       </div>
                       <div>
-                        <Label htmlFor={`pickup-${index}`}>Pickup Date</Label>
+                        <Label htmlFor={`pickup-${quote.id}`}>Pickup Date</Label>
                         <Input
-                          id={`pickup-${index}`}
+                          id={`pickup-${quote.id}`}
                           value={quote.pickup_date}
-                          onChange={(e) => updateQuote(index, "pickup_date", e.target.value)}
+                          onChange={(e) => updateQuote(quote.id, "pickup_date", e.target.value)}
                           placeholder="Mon, 09 Feb 2026\n16:00"
                         />
                       </div>
                       <div>
-                        <Label htmlFor={`delivery-${index}`}>Delivery Date</Label>
+                        <Label htmlFor={`delivery-${quote.id}`}>Delivery Date</Label>
                         <Input
-                          id={`delivery-${index}`}
+                          id={`delivery-${quote.id}`}
                           value={quote.delivery_date}
-                          onChange={(e) => updateQuote(index, "delivery_date", e.target.value)}
+                          onChange={(e) => updateQuote(quote.id, "delivery_date", e.target.value)}
                           placeholder="Thu, 12 Feb 2026\nEnd of business day\n23:30"
                         />
                       </div>
