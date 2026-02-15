@@ -21,21 +21,40 @@ const categories = [
 ];
 
 function parseRow(row: Record<string, unknown>): ServiceQuote {
+  // Handle API response format - API returns customer_cost which maps to optimized_customer_cost
+  // Support both formats: new API format (customer_cost) and old format (optimized_customer_cost)
+  const optimizedCost = Number(row.optimized_customer_cost ?? row.customer_cost ?? 0);
+  const fuelSurcharge = Number(row.fuel_surcharge ?? 0);
+  const vat = Number(row.vat ?? 0);
+  
+  // Calculate total: total = optimized_customer_cost + fuel_surcharge + vat
+  const total = Number(row.total ?? (optimizedCost + fuelSurcharge + vat));
+  
+  // Generate ID if not present (use quote_reference or create one)
+  const id = String(row.id ?? row.quote_reference ?? `${row.service_name}-${row.service_type_name}-${Math.random().toString(36).substr(2, 9)}`);
+  
+  // Map old base price: API may return admin_cost or franchise_cost as the base
+  // Use admin_cost as old_base_price if available, otherwise franchise_cost
+  const oldBasePrice = Number(row.old_base_price ?? row.customer_cost ?? row.admin_cost ?? row.franchise_cost ?? 0);
+  
+  // Calculate increased profit: difference between optimized cost and old base price
+  const increasedProfit = Number(row.increased_profit ?? (optimizedCost - oldBasePrice));
+
   return {
-    id: String(row.id ?? ""),
+    id: id,
     provider: String(row.service_name ?? ""),
     serviceType: String(row.service_type_name ?? ""),
     category: String(row.category ?? "standard") as ServiceQuote["category"],
     pricing: {
-      basePrice: Number(row.optimized_customer_cost ?? 0),
-      fuelSurcharge: Number(row.fuel_surcharge ?? 0),
-      vat: Number(row.vat ?? 0),
+      basePrice: optimizedCost,
+      fuelSurcharge: fuelSurcharge,
+      vat: vat,
     },
-    totalPrice: Number(row.total ?? 0),
+    totalPrice: total,
     pickupDate: String(row.pickup_date ?? ""),
     estimatedDelivery: String(row.delivery_date ?? ""),
-    oldBasePrice: Number(row.customer_cost ?? 0),
-    increasedProfit: Number(row.increased_profit ?? 0),
+    oldBasePrice: oldBasePrice,
+    increasedProfit: increasedProfit,
   };
 }
 
@@ -65,57 +84,67 @@ type SearchCriteria = {
   height: number;
 };
 
+type NavigationState = {
+  searchCriteria?: SearchCriteria;
+  quotesResponse?: unknown;
+};
+
 const Quotes = () => {
   const location = useLocation();
-  const searchCriteria = location.state as SearchCriteria | null;
+  const navigationState = location.state as NavigationState | null;
+  const searchCriteria = navigationState?.searchCriteria || null;
   const [quotes, setQuotes] = useState<ServiceQuote[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function loadQuotes() {
       try {
-        // Build API URL with query parameters if search criteria is available
-        let apiUrl: string = API_ENDPOINTS.QUOTES;
-        if (searchCriteria) {
-          const params = new URLSearchParams({
-            fromCountry: searchCriteria.fromCountry,
-            fromCity: searchCriteria.fromCity,
-            fromPostCode: searchCriteria.fromPostCode,
-            toCountry: searchCriteria.toCountry,
-            toCity: searchCriteria.toCity,
-            toPostCode: searchCriteria.toPostCode,
-            weight: searchCriteria.weight.toString(),
-            width: searchCriteria.width.toString(),
-            length: searchCriteria.length.toString(),
-            height: searchCriteria.height.toString(),
-          });
-          apiUrl = `${API_ENDPOINTS.QUOTES}?${params.toString()}`;
-        }
+        let quotesArray: Record<string, unknown>[] = [];
 
-        // Call API endpoint to fetch quotes
-        const res = await fetch(apiUrl, {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        });
-
-        if (!res.ok) {
-          throw new Error(`HTTP error! status: ${res.status}`);
-        }
-
-        const responseData = await res.json() as Record<string, unknown>[] | { data?: Record<string, unknown>[]; quotes?: Record<string, unknown>[] };
-        
-        // Handle both array response and object with data property
-        let quotesArray: Record<string, unknown>[];
-        if (Array.isArray(responseData)) {
-          quotesArray = responseData;
-        } else if ('data' in responseData && Array.isArray(responseData.data)) {
-          quotesArray = responseData.data;
-        } else if ('quotes' in responseData && Array.isArray(responseData.quotes)) {
-          quotesArray = responseData.quotes;
+        // If quotes were already fetched from Index page, use them
+        if (navigationState?.quotesResponse) {
+          const responseData = navigationState.quotesResponse;
+          
+          // Handle both array response and object with data property
+          if (Array.isArray(responseData)) {
+            quotesArray = responseData;
+          } else if (typeof responseData === 'object' && responseData !== null) {
+            const data = responseData as { data?: unknown[]; quotes?: unknown[] };
+            if (Array.isArray(data.data)) {
+              quotesArray = data.data as Record<string, unknown>[];
+            } else if (Array.isArray(data.quotes)) {
+              quotesArray = data.quotes as Record<string, unknown>[];
+            } else {
+              throw new Error("Invalid API response format");
+            }
+          } else {
+            throw new Error("Invalid API response format");
+          }
         } else {
-          throw new Error("Invalid API response format");
+          // Fallback: Call API endpoint if quotes weren't passed from Index page
+          const res = await fetch(API_ENDPOINTS.QUOTES, {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          });
+
+          if (!res.ok) {
+            throw new Error(`HTTP error! status: ${res.status}`);
+          }
+
+          const responseData = await res.json() as Record<string, unknown>[] | { data?: Record<string, unknown>[]; quotes?: Record<string, unknown>[] };
+          
+          // Handle both array response and object with data property
+          if (Array.isArray(responseData)) {
+            quotesArray = responseData;
+          } else if ('data' in responseData && Array.isArray(responseData.data)) {
+            quotesArray = responseData.data;
+          } else if ('quotes' in responseData && Array.isArray(responseData.quotes)) {
+            quotesArray = responseData.quotes;
+          } else {
+            throw new Error("Invalid API response format");
+          }
         }
 
         const parsed = quotesArray.map(parseRow);
@@ -142,7 +171,7 @@ const Quotes = () => {
       }
     }
     loadQuotes();
-  }, [searchCriteria]);
+  }, [navigationState]);
 
   return (
     <div className="flex min-h-screen flex-col bg-background">

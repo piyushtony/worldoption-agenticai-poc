@@ -9,4 +9,5 @@ export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localho
 // API Endpoints
 export const API_ENDPOINTS = {
   QUOTES: `${API_BASE_URL}/quotes`,
+  GET_QUOTES: `${API_BASE_URL}/quotes`, // POST endpoint to get quotes
 } as const;

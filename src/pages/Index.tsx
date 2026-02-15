@@ -11,6 +11,8 @@ import { Button } from "@/components/ui/button";
 import {
   Form, FormField, FormItem, FormLabel, FormControl, FormMessage,
 } from "@/components/ui/form";
+import { API_ENDPOINTS } from "@/config/api";
+import { toast } from "@/hooks/use-toast";
 
 const schema = z.object({
   fromCountry: z.string().trim().min(1, "Required").max(200),
@@ -45,9 +47,56 @@ const Index = () => {
 
   const onSubmit = async (data: FormValues) => {
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 1200));
-    setLoading(false);
-    navigate("/quotes", { state: data });
+    try {
+      // Prepare the request payload matching the API input format
+      const requestPayload = {
+        collection_country_code: data.fromCountry,
+        collection_city: data.fromCity,
+        collection_post_code: data.fromPostCode,
+        delivery_country_code: data.toCountry,
+        delivery_city: data.toCity,
+        delivery_post_code: data.toPostCode,
+        weight: data.weight,
+        width: data.width,
+        length: data.length,
+        height: data.height,
+        no_of_packages: 1, // Default to 1 package
+      };
+
+      // Call API to get quotes
+      const response = await fetch(API_ENDPOINTS.GET_QUOTES, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestPayload),
+      });
+
+      if (!response.ok) {
+        throw new Error(`API error! status: ${response.status}`);
+      }
+
+      const quotesData = await response.json();
+      
+      // Navigate to quotes page with both form data and API response
+      navigate("/quotes", { 
+        state: {
+          searchCriteria: data,
+          quotesResponse: quotesData,
+        }
+      });
+    } catch (error) {
+      console.error("Failed to fetch quotes", error);
+      toast({
+        title: "Error fetching quotes",
+        description: error instanceof Error ? error.message : "Could not fetch quotes from the API. Please try again.",
+        variant: "destructive",
+      });
+      // Still navigate to quotes page even if API fails, so user can see the form data
+      navigate("/quotes", { state: { searchCriteria: data } });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
