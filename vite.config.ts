@@ -11,6 +11,15 @@ export default defineConfig(({ mode }) => ({
     hmr: {
       overlay: false,
     },
+    proxy: {
+      // Proxy API requests to avoid CORS issues in development
+      '/api': {
+        target: process.env.VITE_API_TARGET_URL || 'http://localhost:3000',
+        changeOrigin: true,
+        secure: false,
+        // Don't rewrite the path, just forward /api/* to target/api/*
+      },
+    },
   },
   plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
   resolve: {
