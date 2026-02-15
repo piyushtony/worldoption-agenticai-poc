@@ -48,23 +48,32 @@ const Admin = () => {
   const [hasChanges, setHasChanges] = useState(false);
  
   useEffect(() => {
-    loadInputJson();
+    loadQuotesFromAPI();
     ensureBackupExists();
   }, []);
- 
-  const loadInputJson = async () => {
+
+  const loadQuotesFromAPI = async () => {
     try {
-      const res = await fetch("/input.json?v=" + Date.now());
-      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-      const data = await res.json() as InputQuoteData[];
+      const response = await fetch(API_ENDPOINTS.GET_QUOTES_DATA, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json() as InputQuoteData[];
       setQuotes(data);
       setBackupQuotes(JSON.parse(JSON.stringify(data))); // Deep copy for backup
       setHasChanges(false);
     } catch (e) {
-      console.error("Failed to load input.json", e);
+      console.error("Failed to load quotes from API", e);
       toast({
-        title: "Error loading input.json",
-        description: "Could not read the input.json file.",
+        title: "Error loading quotes",
+        description: e instanceof Error ? e.message : "Could not fetch quotes from the API. Please check your API endpoint configuration.",
         variant: "destructive",
       });
     } finally {
