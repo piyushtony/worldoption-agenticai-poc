@@ -141,9 +141,9 @@ const Quotes = () => {
             throw new Error("Invalid API response format");
           }
         } else {
-          // Fallback: Call API endpoint if quotes weren't passed from Index page
-          const res = await fetch(API_ENDPOINTS.QUOTES, {
-            method: 'GET',
+          // Fallback: Call the same API endpoint as Index page (GET_QUOTES with POST)
+          const res = await fetch(API_ENDPOINTS.GET_QUOTES, {
+            method: 'POST',
             headers: {
               'Content-Type': 'application/json',
             },
