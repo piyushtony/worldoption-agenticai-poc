@@ -12,6 +12,7 @@ import {
   type ServiceQuote,
 } from "@/data/mockQuotes";
 import { toast } from "@/hooks/use-toast";
+import { API_ENDPOINTS } from "@/config/api";
 
 const categories = [
   { key: "standard" as const, label: "Economy and Standard" },
@@ -26,14 +27,14 @@ function parseRow(row: Record<string, unknown>): ServiceQuote {
     serviceType: String(row.service_type_name ?? ""),
     category: String(row.category ?? "standard") as ServiceQuote["category"],
     pricing: {
-      basePrice: Number(row.customer_cost ?? 0),
+      basePrice: Number(row.optimized_customer_cost ?? 0),
       fuelSurcharge: Number(row.fuel_surcharge ?? 0),
       vat: Number(row.vat ?? 0),
     },
     totalPrice: Number(row.total ?? 0),
     pickupDate: String(row.pickup_date ?? ""),
     estimatedDelivery: String(row.delivery_date ?? ""),
-    oldBasePrice: Number(row.old_base_price ?? 0),
+    oldBasePrice: Number(row.customer_cost ?? 0),
     increasedProfit: Number(row.increased_profit ?? 0),
   };
 }
@@ -73,12 +74,51 @@ const Quotes = () => {
   useEffect(() => {
     async function loadQuotes() {
       try {
-        const res = await fetch("/quotes-data.json?v=" + Date.now());
+        // Build API URL with query parameters if search criteria is available
+        let apiUrl: string = API_ENDPOINTS.QUOTES;
+        if (searchCriteria) {
+          const params = new URLSearchParams({
+            fromCountry: searchCriteria.fromCountry,
+            fromCity: searchCriteria.fromCity,
+            fromPostCode: searchCriteria.fromPostCode,
+            toCountry: searchCriteria.toCountry,
+            toCity: searchCriteria.toCity,
+            toPostCode: searchCriteria.toPostCode,
+            weight: searchCriteria.weight.toString(),
+            width: searchCriteria.width.toString(),
+            length: searchCriteria.length.toString(),
+            height: searchCriteria.height.toString(),
+          });
+          apiUrl = `${API_ENDPOINTS.QUOTES}?${params.toString()}`;
+        }
+
+        // Call API endpoint to fetch quotes
+        const res = await fetch(apiUrl, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+
         if (!res.ok) {
           throw new Error(`HTTP error! status: ${res.status}`);
         }
-        const data = await res.json() as Record<string, unknown>[];
-        const parsed = data.map(parseRow);
+
+        const responseData = await res.json() as Record<string, unknown>[] | { data?: Record<string, unknown>[]; quotes?: Record<string, unknown>[] };
+        
+        // Handle both array response and object with data property
+        let quotesArray: Record<string, unknown>[];
+        if (Array.isArray(responseData)) {
+          quotesArray = responseData;
+        } else if ('data' in responseData && Array.isArray(responseData.data)) {
+          quotesArray = responseData.data;
+        } else if ('quotes' in responseData && Array.isArray(responseData.quotes)) {
+          quotesArray = responseData.quotes;
+        } else {
+          throw new Error("Invalid API response format");
+        }
+
+        const parsed = quotesArray.map(parseRow);
 
         const err = validateSchema(parsed);
         if (err) {
@@ -91,10 +131,10 @@ const Quotes = () => {
 
         setQuotes(parsed);
       } catch (e) {
-        console.error("Failed to load quotes JSON", e);
+        console.error("Failed to load quotes from API", e);
         toast({
           title: "Error loading quotes",
-          description: "Could not read the quotes data file.",
+          description: e instanceof Error ? e.message : "Could not fetch quotes from the API. Please check your API endpoint configuration.",
           variant: "destructive",
         });
       } finally {
@@ -102,7 +142,7 @@ const Quotes = () => {
       }
     }
     loadQuotes();
-  }, []);
+  }, [searchCriteria]);
 
   return (
     <div className="flex min-h-screen flex-col bg-background">

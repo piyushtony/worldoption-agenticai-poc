@@ -20,13 +20,13 @@ type QuoteData = {
   service_name: string;
   service_type_name: string;
   category: "standard" | "express" | "dropoff";
-  customer_cost: number;
+  optimized_customer_cost: number;
   fuel_surcharge: number;
   vat: number;
   total: number;
   pickup_date: string;
   delivery_date: string;
-  old_base_price: number;
+  customer_cost: number;
   increased_profit: number;
 };
 
@@ -63,8 +63,8 @@ const Admin = () => {
     updated[index] = { ...updated[index], [field]: value };
     
     // Auto-calculate total if pricing fields change
-    if (field === "customer_cost" || field === "fuel_surcharge" || field === "vat") {
-      const base = field === "customer_cost" ? Number(value) : updated[index].customer_cost;
+    if (field === "optimized_customer_cost" || field === "fuel_surcharge" || field === "vat") {
+      const base = field === "optimized_customer_cost" ? Number(value) : updated[index].optimized_customer_cost;
       const fuel = field === "fuel_surcharge" ? Number(value) : updated[index].fuel_surcharge;
       const vat = field === "vat" ? Number(value) : updated[index].vat;
       updated[index].total = Number((base + fuel + vat).toFixed(2));
@@ -80,13 +80,13 @@ const Admin = () => {
       service_name: "",
       service_type_name: "",
       category: "standard",
-      customer_cost: 0,
+      optimized_customer_cost: 0,
       fuel_surcharge: 0,
       vat: 0,
       total: 0,
       pickup_date: "",
       delivery_date: "",
-      old_base_price: 0,
+      customer_cost: 0,
       increased_profit: 0,
     };
     setQuotes([...quotes, newQuote]);
@@ -312,13 +312,13 @@ const Admin = () => {
                     </h3>
                     <div className="space-y-3">
                       <div>
-                        <Label htmlFor={`cost-${index}`}>Customer Cost (£)</Label>
+                        <Label htmlFor={`cost-${index}`}>Optimized Customer Cost (£)</Label>
                         <Input
                           id={`cost-${index}`}
                           type="number"
                           step="0.01"
-                          value={quote.customer_cost}
-                          onChange={(e) => updateQuote(index, "customer_cost", parseFloat(e.target.value) || 0)}
+                          value={quote.optimized_customer_cost}
+                          onChange={(e) => updateQuote(index, "optimized_customer_cost", parseFloat(e.target.value) || 0)}
                         />
                       </div>
                       <div>
@@ -380,13 +380,13 @@ const Admin = () => {
                         />
                       </div>
                       <div>
-                        <Label htmlFor={`old-price-${index}`}>Old Base Price (£)</Label>
+                        <Label htmlFor={`old-price-${index}`}>Customer Cost (£)</Label>
                         <Input
                           id={`old-price-${index}`}
                           type="number"
                           step="0.01"
-                          value={quote.old_base_price}
-                          onChange={(e) => updateQuote(index, "old_base_price", parseFloat(e.target.value) || 0)}
+                          value={quote.customer_cost}
+                          onChange={(e) => updateQuote(index, "customer_cost", parseFloat(e.target.value) || 0)}
                         />
                       </div>
                       <div>
