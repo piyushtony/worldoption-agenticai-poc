@@ -20,6 +20,22 @@ const categories = [
   { key: "dropoff" as const, label: "Drop Off" },
 ];
 
+/** Extract just the date part (e.g., "Thu, 12 Feb 2026") from date strings */
+function extractDateOnly(dateString: string): string {
+  if (!dateString) return "";
+  
+  // Remove HTML tags
+  let cleaned = dateString.replace(/<[^>]*>/g, "");
+  
+  // Split by newlines or <br> tags and get the first part
+  const parts = cleaned.split(/\n|<br\s*\/?>/i).map(p => p.trim()).filter(Boolean);
+  
+  // Find the first part that matches date format (e.g., "Thu, 12 Feb 2026" or "Mon, 09 Feb 2026")
+  const dateMatch = parts.find(part => /^[A-Za-z]{3},\s+\d{1,2}\s+[A-Za-z]{3}\s+\d{4}/.test(part));
+  
+  return dateMatch || parts[0] || dateString;
+}
+
 function parseRow(row: Record<string, unknown>): ServiceQuote {
   // Handle API response format - API returns customer_cost which maps to optimized_customer_cost
   // Support both formats: new API format (customer_cost) and old format (optimized_customer_cost)
@@ -40,6 +56,10 @@ function parseRow(row: Record<string, unknown>): ServiceQuote {
   // Calculate increased profit: difference between optimized cost and old base price
   const increasedProfit = Number(row.increased_profit ?? (optimizedCost - oldBasePrice));
 
+  // Extract clean date strings (only "Thu, 12 Feb 2026" format)
+  const pickupDateRaw = String(row.pickup_date ?? "");
+  const deliveryDateRaw = String(row.delivery_date ?? "");
+
   return {
     id: id,
     provider: String(row.service_name ?? ""),
@@ -51,8 +71,8 @@ function parseRow(row: Record<string, unknown>): ServiceQuote {
       vat: vat,
     },
     totalPrice: total,
-    pickupDate: String(row.pickup_date ?? ""),
-    estimatedDelivery: String(row.delivery_date ?? ""),
+    pickupDate: extractDateOnly(pickupDateRaw),
+    estimatedDelivery: extractDateOnly(deliveryDateRaw),
     oldBasePrice: oldBasePrice,
     increasedProfit: increasedProfit,
   };
@@ -197,7 +217,6 @@ const Quotes = () => {
         {searchCriteria && (
           <Card className="mb-8 border-border/50">
             <CardContent className="pt-6">
-              <h2 className="mb-4 text-lg font-semibold text-primary">Search Criteria</h2>
               <div className="grid gap-6 md:grid-cols-3">
                 {/* From Address */}
                 <div>

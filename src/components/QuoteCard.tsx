@@ -9,32 +9,15 @@ interface QuoteCardProps {
   quote: ServiceQuote;
 }
 
-/** Parse HTML date string like "Thu, 12 Feb 2026<br/>End of business day<br/>23:30<br/><b>Non-Guaranteed</b>" */
-function parseDateHtml(html: string) {
-  const parts = html.split(/<br\s*\/?>/i).map((p) => p.trim()).filter(Boolean);
-  return parts.map((part) => {
-    const boldMatch = part.match(/^<b>(.*?)<\/b>$/i);
-    if (boldMatch) {
-      return { text: boldMatch[1], bold: true };
-    }
-    return { text: part, bold: false };
-  });
-}
-
-const DateDisplay = ({ html, label }: { html: string; label: string }) => {
-  const parts = parseDateHtml(html);
+const DateDisplay = ({ date, label }: { date: string; label: string }) => {
   return (
     <div className="flex-1 space-y-0.5">
       <div className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
         <CalendarDays className="h-3.5 w-3.5" />
         {label}
       </div>
-      <div className="text-sm">
-        {parts.map((p, i) => (
-          <div key={i} className={p.bold ? "font-bold text-primary" : "text-foreground"}>
-            {p.text}
-          </div>
-        ))}
+      <div className="text-sm font-medium text-foreground">
+        {date || "N/A"}
       </div>
     </div>
   );
@@ -42,6 +25,9 @@ const DateDisplay = ({ html, label }: { html: string; label: string }) => {
 
 const QuoteCard = ({ quote }: QuoteCardProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
+  
+  // Check if optimized_customer_cost (basePrice) is different from customer_cost (oldBasePrice)
+  const hasPriceDifference = Math.abs(quote.pricing.basePrice - quote.oldBasePrice) > 0.01;
 
   return (
     <Card className="border-border/60 shadow-md transition-shadow hover:shadow-lg">
@@ -82,13 +68,19 @@ const QuoteCard = ({ quote }: QuoteCardProps) => {
           <CollapsibleTrigger asChild>
             <Button
               variant="ghost"
-              className="w-full justify-between rounded-md bg-muted/30 border border-border/40 px-3 py-2 text-sm font-medium hover:bg-muted/50"
+              className={`w-full justify-between rounded-md border px-3 py-2 text-sm font-medium transition-colors ${
+                hasPriceDifference
+                  ? "bg-primary/10 border-primary/30 text-primary hover:bg-primary/20"
+                  : "bg-muted/30 border-border/40 text-muted-foreground hover:bg-muted/50"
+              }`}
             >
-              <span className="text-muted-foreground">Additional Details</span>
+              <span className={hasPriceDifference ? "text-primary font-semibold" : "text-muted-foreground"}>
+                Additional Details
+              </span>
               {isExpanded ? (
-                <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                <ChevronUp className={`h-4 w-4 ${hasPriceDifference ? "text-primary" : "text-muted-foreground"}`} />
               ) : (
-                <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                <ChevronDown className={`h-4 w-4 ${hasPriceDifference ? "text-primary" : "text-muted-foreground"}`} />
               )}
             </Button>
           </CollapsibleTrigger>
@@ -116,8 +108,8 @@ const QuoteCard = ({ quote }: QuoteCardProps) => {
 
         {/* Dates */}
         <div className="flex gap-4">
-          <DateDisplay html={quote.pickupDate} label="Pickup" />
-          <DateDisplay html={quote.estimatedDelivery} label="Delivery" />
+          <DateDisplay date={quote.pickupDate} label="Pickup" />
+          <DateDisplay date={quote.estimatedDelivery} label="Delivery" />
         </div>
 
         <Button className="w-full bg-secondary text-secondary-foreground hover:bg-secondary/90 font-semibold">
