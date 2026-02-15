@@ -48,20 +48,23 @@ const Index = () => {
   const onSubmit = async (data: FormValues) => {
     setLoading(true);
     try {
-      // Prepare the request payload matching the API input format
+      // Prepare the request payload matching input.json format exactly
       const requestPayload = {
-        collection_country_code: data.fromCountry,
-        collection_city: data.fromCity,
-        collection_post_code: data.fromPostCode,
-        delivery_country_code: data.toCountry,
-        delivery_city: data.toCity,
-        delivery_post_code: data.toPostCode,
-        weight: data.weight,
-        width: data.width,
-        length: data.length,
-        height: data.height,
-        no_of_packages: 1, // Default to 1 package
+        collection_country_code: data.fromCountry.trim(),
+        collection_city: data.fromCity.trim(),
+        collection_post_code: data.fromPostCode.trim(),
+        delivery_country_code: data.toCountry.trim(),
+        delivery_city: data.toCity.trim(),
+        delivery_post_code: data.toPostCode.trim(),
+        weight: Number(data.weight),
+        width: Number(data.width),
+        length: Number(data.length),
+        height: Number(data.height),
+        no_of_packages: 1,
       };
+
+      // Log the payload for debugging (matches input.json format)
+      console.log('Sending API request with payload:', JSON.stringify(requestPayload, null, 2));
 
       // Call API to get quotes
       const response = await fetch(API_ENDPOINTS.GET_QUOTES, {
