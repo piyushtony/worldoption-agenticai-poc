@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/form";
 import { API_ENDPOINTS } from "@/config/api";
 import { toast } from "@/hooks/use-toast";
-
+ 
 const schema = z.object({
   fromCountry: z.string().trim().min(1, "Required").max(200),
   fromCity: z.string().trim().min(1, "Required").max(100),
@@ -26,13 +26,13 @@ const schema = z.object({
   length: z.coerce.number().positive("Must be > 0").max(500),
   height: z.coerce.number().positive("Must be > 0").max(500),
 });
-
+ 
 type FormValues = z.infer<typeof schema>;
-
+ 
 const Index = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
-
+ 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
@@ -44,37 +44,27 @@ const Index = () => {
       height : 25,
     },
   });
-
+ 
   const onSubmit = async (data: FormValues) => {
     setLoading(true);
     try {
-      // Load input.json file to use as API payload
-      const inputJsonResponse = await fetch("/input.json?v=" + Date.now());
-      if (!inputJsonResponse.ok) {
-        throw new Error("Failed to load input.json file");
-      }
-      const requestPayload = await inputJsonResponse.json();
-
-      // Log the payload for debugging (from input.json)
-      console.log('Sending API request with payload from input.json:', JSON.stringify(requestPayload, null, 2));
-
-      // Call API to get quotes using input.json as payload
+ 
+     // Call API to get quotes using input.json as payload
       const response = await fetch(API_ENDPOINTS.GET_QUOTES, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestPayload),
+        }
       });
-
+ 
       if (!response.ok) {
         throw new Error(`API error! status: ${response.status}`);
       }
-
+ 
       const quotesData = await response.json();
-      
+     
       // Navigate to quotes page with both form data and API response
-      navigate("/quotes", { 
+      navigate("/quotes", {
         state: {
           searchCriteria: data,
           quotesResponse: quotesData,
@@ -93,11 +83,11 @@ const Index = () => {
       setLoading(false);
     }
   };
-
+ 
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <Navbar />
-
+ 
       <main className="flex flex-1 flex-col items-center justify-center px-4 py-12">
         <div className="mb-8 text-center">
           <h1 className="text-4xl font-extrabold tracking-tight text-primary sm:text-5xl">
@@ -107,13 +97,13 @@ const Index = () => {
             Get instant courier quotes for your shipment
           </p>
         </div>
-
+ 
         <Card className="w-full max-w-2xl shadow-xl border-border/50">
           <CardHeader>
             <CardTitle className="text-xl">Shipment Details</CardTitle>
             <CardDescription>Enter addresses and parcel dimensions below</CardDescription>
           </CardHeader>
-
+ 
           <CardContent>
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
@@ -134,7 +124,7 @@ const Index = () => {
                     )} />
                   </div>
                 </fieldset>
-
+ 
                 {/* To */}
                 <fieldset>
                   <legend className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
@@ -152,7 +142,7 @@ const Index = () => {
                     )} />
                   </div>
                 </fieldset>
-
+ 
                 {/* Parcel */}
                 <fieldset>
                   <legend className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
@@ -173,7 +163,7 @@ const Index = () => {
                     )} />
                   </div>
                 </fieldset>
-
+ 
                 <Button type="submit" size="lg" disabled={loading} className="w-full bg-secondary text-secondary-foreground hover:bg-secondary/90 font-bold text-base">
                   {loading ? (
                     <>
@@ -195,5 +185,5 @@ const Index = () => {
     </div>
   );
 };
-
+ 
 export default Index;

@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
 import { API_ENDPOINTS } from "@/config/api";
-
+ 
 type InputQuoteData = {
   id: number; // Unique identifier - not editable
   service_name: string;
@@ -40,18 +40,18 @@ type InputQuoteData = {
   fuel_surcharge: number;
   vat: number;
 };
-
+ 
 const Admin = () => {
   const [quotes, setQuotes] = useState<InputQuoteData[]>([]);
   const [backupQuotes, setBackupQuotes] = useState<InputQuoteData[]>([]);
   const [loading, setLoading] = useState(true);
   const [hasChanges, setHasChanges] = useState(false);
-
+ 
   useEffect(() => {
     loadInputJson();
     ensureBackupExists();
   }, []);
-
+ 
   const loadInputJson = async () => {
     try {
       const res = await fetch("/input.json?v=" + Date.now());
@@ -71,7 +71,7 @@ const Admin = () => {
       setLoading(false);
     }
   };
-
+ 
   const ensureBackupExists = async () => {
     try {
       const backupRes = await fetch("/backup-input.json?v=" + Date.now());
@@ -97,7 +97,7 @@ const Admin = () => {
       console.error("Error checking backup", e);
     }
   };
-
+ 
   const resetFromBackup = async () => {
     if (confirm("Are you sure you want to reset? This will restore input.json from backup-input.json and discard all unsaved changes.")) {
       try {
@@ -107,18 +107,15 @@ const Admin = () => {
             'Content-Type': 'application/json',
           },
         });
-
+ 
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
-
+ 
         const result = await response.json();
-        const data = result.data as InputQuoteData[];
-        
-        setQuotes(data);
-        setBackupQuotes(JSON.parse(JSON.stringify(data)));
-        setHasChanges(false);
-        
+       
+        window.location.reload();
+ 
         toast({
           title: "Reset Successful",
           description: result.message || "input.json has been restored from backup-input.json.",
@@ -133,20 +130,20 @@ const Admin = () => {
       }
     }
   };
-
+ 
   const updateQuote = (id: number, field: keyof InputQuoteData, value: string | number) => {
-    const updated = quotes.map(quote => 
+    const updated = quotes.map(quote =>
       quote.id === id ? { ...quote, [field]: value } : quote
     );
     setQuotes(updated);
     setHasChanges(true);
   };
-
+ 
   const addQuote = () => {
     // Find the maximum ID and increment it
     const maxId = quotes.length > 0 ? Math.max(...quotes.map(q => q.id)) : 0;
     const newId = maxId + 1;
-    
+   
     const newQuote: InputQuoteData = {
       id: newId,
       service_name: "",
@@ -174,7 +171,7 @@ const Admin = () => {
     setQuotes([...quotes, newQuote]);
     setHasChanges(true);
   };
-
+ 
   const deleteQuote = (id: number) => {
     if (confirm("Are you sure you want to delete this quote?")) {
       const updated = quotes.filter(q => q.id !== id);
@@ -182,7 +179,7 @@ const Admin = () => {
       setHasChanges(true);
     }
   };
-
+ 
   const saveInputJson = async () => {
     try {
       const response = await fetch(API_ENDPOINTS.SAVE_INPUT, {
@@ -192,17 +189,17 @@ const Admin = () => {
         },
         body: JSON.stringify(quotes),
       });
-
+ 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-
+ 
       const result = await response.json();
-      
+     
       // Update backup to current saved state (for next save)
       setBackupQuotes(JSON.parse(JSON.stringify(quotes)));
       setHasChanges(false);
-
+ 
       toast({
         title: "Saved Successfully",
         description: result.message || "input.json has been saved successfully.",
@@ -216,7 +213,7 @@ const Admin = () => {
       });
     }
   };
-
+ 
   if (loading) {
     return (
       <div className="flex min-h-screen flex-col bg-background">
@@ -227,11 +224,11 @@ const Admin = () => {
       </div>
     );
   }
-
+ 
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <Navbar />
-
+ 
       <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-10">
         <div className="mb-8 flex items-center justify-between">
           <div className="flex items-center gap-4">
@@ -249,7 +246,7 @@ const Admin = () => {
               </p>
             </div>
           </div>
-
+ 
           <div className="flex gap-2">
             <Button
               variant="outline"
@@ -277,7 +274,7 @@ const Admin = () => {
             </Button>
           </div>
         </div>
-
+ 
         {hasChanges && (
           <Card className="mb-6 border-yellow-500/50 bg-yellow-50 dark:bg-yellow-950/20">
             <CardContent className="pt-6">
@@ -298,7 +295,7 @@ const Admin = () => {
             </CardContent>
           </Card>
         )}
-
+ 
         <div className="space-y-6">
           {quotes.map((quote) => (
             <Card key={quote.id} className="border-border/60">
@@ -397,7 +394,7 @@ const Admin = () => {
                       </div>
                     </div>
                   </div>
-
+ 
                   {/* Collection & Delivery */}
                   <div className="space-y-4">
                     <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
@@ -454,7 +451,7 @@ const Admin = () => {
                       </div>
                     </div>
                   </div>
-
+ 
                   {/* Pricing & Dates */}
                   <div className="space-y-4">
                     <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
@@ -546,7 +543,7 @@ const Admin = () => {
             </Card>
           ))}
         </div>
-
+ 
         {quotes.length === 0 && (
           <Card>
             <CardContent className="pt-6 text-center">
@@ -558,5 +555,6 @@ const Admin = () => {
     </div>
   );
 };
-
+ 
 export default Admin;
+ 
