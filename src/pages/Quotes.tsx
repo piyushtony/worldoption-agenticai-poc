@@ -40,10 +40,10 @@ function parseRow(row: Record<string, unknown>): ServiceQuote {
   // Handle API response format - API returns customer_cost which maps to optimized_customer_cost
   // Support both formats: new API format (customer_cost) and old format (optimized_customer_cost)
   const optimizedCost = Number(row.optimized_customer_cost ?? row.customer_cost ?? 0);
-  const fuelSurcharge = Number(row.fuel_surcharge ?? 0);
+  const fuelSurcharge = Number(row.optimized_fuel_surcharge ?? row.fuel_surcharge ?? 0);
   const vat = Number(row.vat ?? 0);
   
-  // Calculate total: total = optimized_customer_cost + fuel_surcharge + vat
+  // Calculate total: total = optimized_customer_cost + optimized_fuel_surcharge + vat
   const total = Number(row.total ?? (optimizedCost + fuelSurcharge + vat));
   
   // Generate ID if not present (use quote_reference or create one)
@@ -54,10 +54,10 @@ function parseRow(row: Record<string, unknown>): ServiceQuote {
   const oldBasePrice = Number(row.old_base_price ?? row.customer_cost ?? row.admin_cost ?? row.franchise_cost ?? 0);
 
   // Old fuel surcharge and VAT from API response
-  const oldFuelSurcharge = Number(row.old_fuel_surcharge ?? 0);
+  const oldFuelSurcharge = Number(row.fuel_surcharge ?? 0);
   const oldVat = Number(row.old_vat ?? 0);
   
-  // Calculate old total: old_base_price + old_fuel_surcharge + old_vat
+  // Calculate old total: old_base_price + fuel_surcharge + old_vat
   const oldTotal = Number(row.old_total ?? (oldBasePrice + oldFuelSurcharge + oldVat));
   
   // Calculate increased profit: Old Total - Total
