@@ -35,7 +35,7 @@ if (isDevelopment) {
   API_BASE_URL = '/api';
 } else {
   // In production, use environment variable or fallback
-  API_BASE_URL = envApiUrl || 'http://localhost:8002';
+  API_BASE_URL = envApiUrl || 'https://qx4wq3dij9.us-east-2.awsapprunner.com/';
 }
  
 // API Endpoints
