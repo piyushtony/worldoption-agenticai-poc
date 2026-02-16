@@ -143,10 +143,62 @@ const Admin = () => {
     }
   };
  
+  // Helper function to calculate derived fields based on markups
+  const calculateDerivedFields = (quote: InputQuoteData) => {
+    const adminCost = parseFloat(String(quote.admin_cost)) || 0;
+    const fuelAdminCost = quote.fuel_admin_cost ? parseFloat(String(quote.fuel_admin_cost)) : 0;
+    const adminMarkup = parseFloat(String(quote.admin_markup)) || 0;
+    const franchiseMarkup = parseFloat(String(quote.franchise_markup)) || 0;
+    
+    console.log('Input values:', { adminCost, fuelAdminCost, adminMarkup, franchiseMarkup });
+    
+    // Calculate franchise_cost and fuel_franchise_cost (admin_markup applied)
+    const franchiseCost = adminCost * (1 + adminMarkup / 100);
+    const fuelFranchiseCost = fuelAdminCost * (1 + adminMarkup / 100);
+    
+    // Calculate customer_cost and fuel_surcharge (both markups applied sequentially)
+    const customerCost = adminCost * (1 + adminMarkup / 100) * (1 + franchiseMarkup / 100);
+    const fuelSurcharge = fuelAdminCost * (1 + adminMarkup / 100) * (1 + franchiseMarkup / 100);
+    
+    const result = {
+      franchise_cost: Math.round(franchiseCost * 100) / 100,
+      fuel_franchise_cost: Math.round(fuelFranchiseCost * 100) / 100,
+      customer_cost: Math.round(customerCost * 100) / 100,
+      fuel_surcharge: Math.round(fuelSurcharge * 100) / 100,
+    };
+    
+    console.log('Calculated results:', result);
+    
+    return result;
+  };
+
   const updateQuote = (id: number, field: keyof InputQuoteData, value: string | number) => {
-    const updated = quotes.map(quote =>
-      quote.id === id ? { ...quote, [field]: value } : quote
-    );
+    console.log('updateQuote called:', { id, field, value });
+    const updated = quotes.map(quote => {
+      if (quote.id === id) {
+        const updatedQuote = { ...quote, [field]: value };
+        
+        // If admin_markup or franchise_markup changed, recalculate derived fields
+        if (field === 'admin_markup' || field === 'franchise_markup') {
+          console.log('Markup changed, recalculating...');
+          const derivedFields = calculateDerivedFields(updatedQuote);
+          console.log('Calculated derived fields:', derivedFields);
+          const result = {
+            ...updatedQuote,
+            franchise_cost: derivedFields.franchise_cost.toFixed(2),
+            fuel_franchise_cost: derivedFields.fuel_franchise_cost,
+            customer_cost: derivedFields.customer_cost.toFixed(2),
+            fuel_surcharge: derivedFields.fuel_surcharge,
+          };
+          console.log('Updated quote:', result);
+          return result;
+        }
+        
+        return updatedQuote;
+      }
+      return quote;
+    });
+    console.log('Setting updated quotes:', updated);
     setQuotes(updated);
     setHasChanges(true);
   };
