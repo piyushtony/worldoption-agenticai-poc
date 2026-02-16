@@ -15,13 +15,16 @@ export interface ServiceQuote {
   estimatedDelivery: string;
   oldBasePrice: number;
   increasedProfit: number;
+  oldFuelSurcharge: number;
+  oldVat: number;
+  oldTotal: number;
 }
 
 // Expected schema keys for admin monitoring
 export const EXPECTED_QUOTE_KEYS: (keyof ServiceQuote)[] = [
   "id", "provider", "serviceType", "category",
   "pricing", "totalPrice", "pickupDate", "estimatedDelivery",
-  "oldBasePrice", "increasedProfit",
+  "oldBasePrice", "increasedProfit", "oldFuelSurcharge", "oldVat", "oldTotal",
 ];
 
 export const EXPECTED_PRICING_KEYS: (keyof QuoteBreakdown)[] = [
@@ -41,6 +44,9 @@ export const mockQuotes: ServiceQuote[] = [
     estimatedDelivery: "2026-02-17",
     oldBasePrice: 7.00,
     increasedProfit: 1.50,
+    oldFuelSurcharge: 1.00,
+    oldVat: 1.60,
+    oldTotal: 9.60,
   },
   {
     id: "std-2",
@@ -53,6 +59,9 @@ export const mockQuotes: ServiceQuote[] = [
     estimatedDelivery: "2026-02-18",
     oldBasePrice: 7.50,
     increasedProfit: 1.50,
+    oldFuelSurcharge: 1.20,
+    oldVat: 1.75,
+    oldTotal: 10.45,
   },
   {
     id: "std-3",
@@ -65,6 +74,9 @@ export const mockQuotes: ServiceQuote[] = [
     estimatedDelivery: "2026-02-19",
     oldBasePrice: 6.50,
     increasedProfit: 1.30,
+    oldFuelSurcharge: 0.90,
+    oldVat: 1.48,
+    oldTotal: 8.88,
   },
   // Express
   {
@@ -78,6 +90,9 @@ export const mockQuotes: ServiceQuote[] = [
     estimatedDelivery: "2026-02-12",
     oldBasePrice: 18.00,
     increasedProfit: 4.00,
+    oldFuelSurcharge: 2.80,
+    oldVat: 4.18,
+    oldTotal: 24.98,
   },
   {
     id: "exp-2",
@@ -90,6 +105,9 @@ export const mockQuotes: ServiceQuote[] = [
     estimatedDelivery: "2026-02-12",
     oldBasePrice: 20.00,
     increasedProfit: 5.00,
+    oldFuelSurcharge: 3.20,
+    oldVat: 4.64,
+    oldTotal: 27.84,
   },
   {
     id: "exp-3",
@@ -102,6 +120,9 @@ export const mockQuotes: ServiceQuote[] = [
     estimatedDelivery: "2026-02-12",
     oldBasePrice: 19.50,
     increasedProfit: 4.50,
+    oldFuelSurcharge: 3.04,
+    oldVat: 4.51,
+    oldTotal: 27.05,
   },
   // Drop Off
   {
@@ -115,6 +136,9 @@ export const mockQuotes: ServiceQuote[] = [
     estimatedDelivery: "2026-02-16",
     oldBasePrice: 4.50,
     increasedProfit: 1.00,
+    oldFuelSurcharge: 0.64,
+    oldVat: 1.03,
+    oldTotal: 6.17,
   },
   {
     id: "drop-2",
@@ -127,6 +151,9 @@ export const mockQuotes: ServiceQuote[] = [
     estimatedDelivery: "2026-02-17",
     oldBasePrice: 5.00,
     increasedProfit: 1.00,
+    oldFuelSurcharge: 0.72,
+    oldVat: 1.15,
+    oldTotal: 6.87,
   },
   {
     id: "drop-3",
@@ -139,5 +166,8 @@ export const mockQuotes: ServiceQuote[] = [
     estimatedDelivery: "2026-02-16",
     oldBasePrice: 4.80,
     increasedProfit: 1.00,
+    oldFuelSurcharge: 0.68,
+    oldVat: 1.10,
+    oldTotal: 6.58,
   },
 ];

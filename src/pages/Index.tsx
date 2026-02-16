@@ -49,7 +49,7 @@ const Index = () => {
     setLoading(true);
     try {
  
-     // Call API to get quotes using input.json as payload
+     // Call API to get quotes
       const response = await fetch(API_ENDPOINTS.GET_QUOTES, {
         method: 'POST',
         headers: {

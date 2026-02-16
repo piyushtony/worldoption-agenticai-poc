@@ -1,60 +1,61 @@
 /**
  * API Configuration
- * Update the API_BASE_URL to point to your backend API
- *
- * In development, use '/api' to leverage Vite proxy (avoids CORS)
- * In production, use full URL or set VITE_API_BASE_URL environment variable
- *
- * To configure your API URL:
- * 1. Create a .env file in the project root
- * 2. Add: VITE_API_TARGET_URL=http://your-api-server.com
- *    (This is used by the Vite proxy in development)
- * 3. For production: VITE_API_BASE_URL=http://your-api-server.com/api
+ * Reads API_BASE_URL from config.json file at runtime
+ * 
+ * The config.json file should be in the public folder
  */
- 
-// For development: use proxy path to avoid CORS
-// For production: use full API URL
-const isDevelopment = import.meta.env.PROD;
- 
-// Get environment variables safely
-const getEnvVar = (key: string): string | undefined => {
-  try {
-    return import.meta.env[key];
-  } catch {
-    return undefined;
+
+// Default API base URL (fallback if config.json is not available)
+const DEFAULT_API_BASE_URL = 'https://xpqacwxtiw.us-east-2.awsapprunner.com';
+
+// Cache for the API base URL
+let API_BASE_URL: string = DEFAULT_API_BASE_URL;
+let configLoaded = false;
+
+/**
+ * Load API_BASE_URL from config.json
+ * This should be called early in the app lifecycle
+ */
+export async function loadApiConfig(): Promise<void> {
+  if (configLoaded) {
+    return;
   }
-};
- 
-const envApiUrl = getEnvVar('API_BASE_URL');
- 
-// Determine API base URL
-let API_BASE_URL: string;
-if (isDevelopment) {
-  // Use proxy in development to avoid CORS
-  // The proxy will forward /api/* to your actual API server
-  API_BASE_URL = '/api';
-} else {
-  // In production, use environment variable or fallback
-  API_BASE_URL = envApiUrl || 'https://qx4wq3dij9.us-east-2.awsapprunner.com/';
+
+  try {
+    const response = await fetch('/config.json?v=' + Date.now());
+    if (response.ok) {
+      const config = await response.json();
+      if (config.API_BASE_URL) {
+        API_BASE_URL = config.API_BASE_URL;
+        console.log('API Base URL loaded from config.json:', API_BASE_URL);
+      }
+    } else {
+      console.warn('Failed to load config.json, using default API URL:', DEFAULT_API_BASE_URL);
+    }
+  } catch (error) {
+    console.error('Error loading config.json:', error);
+    console.warn('Using default API URL:', DEFAULT_API_BASE_URL);
+  } finally {
+    configLoaded = true;
+  }
 }
- 
-// API Endpoints
+
+// Auto-load config when module is imported
+loadApiConfig();
+
+// Helper function to get current API base URL
+function getApiBaseUrl(): string {
+  return API_BASE_URL;
+}
+
+// API Endpoints - use getters to always get current API_BASE_URL
 export const API_ENDPOINTS = {
-  QUOTES: `${API_BASE_URL}/quotes`,
-  GET_QUOTES: `${API_BASE_URL}/optimize_prices`, // POST endpoint to get quotes
-  GET_QUOTES_DATA: `${API_BASE_URL}/get-quotes`, // GET endpoint to get quotes data for admin
-  SAVE_INPUT: `${API_BASE_URL}/save-input`, // POST endpoint to save input.json
-  RESET_INPUT: `${API_BASE_URL}/reset-input`, // POST endpoint to reset input.json from backup
+  get QUOTES() { return `${getApiBaseUrl()}/quotes/`; },
+  get GET_QUOTES() { return `${getApiBaseUrl()}/optimize_prices/`; }, // POST endpoint to get quotes
+  get GET_QUOTES_DATA() { return `${getApiBaseUrl()}/get-quotes/`; }, // GET endpoint to get quotes data for admin
+  get SAVE_INPUT() { return `${getApiBaseUrl()}/save-input/`; }, // POST endpoint to save input.json
+  get RESET_INPUT() { return `${getApiBaseUrl()}/reset-input/`; }, // POST endpoint to reset input.json from backup
 } as const;
- 
+
 // Export for debugging
-export { API_BASE_URL };
- 
-// Log API configuration in development
-if (isDevelopment) {
-  console.log('API Configuration:', {
-    API_BASE_URL,
-    isDevelopment,
-    proxyTarget: 'Configure VITE_API_TARGET_URL in .env or vite.config.ts',
-  });
-}
+export { API_BASE_URL, getApiBaseUrl };

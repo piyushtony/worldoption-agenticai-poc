@@ -52,9 +52,16 @@ function parseRow(row: Record<string, unknown>): ServiceQuote {
   // Map old base price: API may return admin_cost or franchise_cost as the base
   // Use admin_cost as old_base_price if available, otherwise franchise_cost
   const oldBasePrice = Number(row.old_base_price ?? row.customer_cost ?? row.admin_cost ?? row.franchise_cost ?? 0);
+
+  // Old fuel surcharge and VAT from API response
+  const oldFuelSurcharge = Number(row.old_fuel_surcharge ?? 0);
+  const oldVat = Number(row.old_vat ?? 0);
   
-  // Calculate increased profit: difference between optimized cost and old base price
-  const increasedProfit = Number(row.increased_profit ?? (optimizedCost - oldBasePrice));
+  // Calculate old total: old_base_price + old_fuel_surcharge + old_vat
+  const oldTotal = Number(row.old_total ?? (oldBasePrice + oldFuelSurcharge + oldVat));
+  
+  // Calculate increased profit: Old Total - Total
+  const increasedProfit = Number(row.increased_profit ?? (oldTotal - total));
 
   // Extract clean date strings (only "Thu, 12 Feb 2026" format)
   const pickupDateRaw = String(row.pickup_date ?? "");
@@ -75,6 +82,9 @@ function parseRow(row: Record<string, unknown>): ServiceQuote {
     estimatedDelivery: extractDateOnly(deliveryDateRaw),
     oldBasePrice: oldBasePrice,
     increasedProfit: increasedProfit,
+    oldFuelSurcharge: oldFuelSurcharge,
+    oldVat: oldVat,
+    oldTotal: oldTotal,
   };
 }
 

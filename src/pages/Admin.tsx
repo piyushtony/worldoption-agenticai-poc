@@ -16,29 +16,40 @@ import {
 import { toast } from "@/hooks/use-toast";
 import { API_ENDPOINTS } from "@/config/api";
  
+// Search criteria fields (read-only, from Index page)
+type SearchCriteria = {
+  fromCountry: string;
+  fromCity: string;
+  fromPostCode: string;
+  toCountry: string;
+  toCity: string;
+  toPostCode: string;
+  weight: number;
+  width: number;
+  length: number;
+  height: number;
+};
+
+// API response fields (editable)
 type InputQuoteData = {
   id: number; // Unique identifier - not editable
+  quote_reference: string;
   service_name: string;
   service_type_name: string;
-  no_of_packages: string;
-  chargeable_weight: string;
-  pickup_date: string;
-  delivery_date: string;
   category: "standard" | "express" | "dropoff";
-  collection_post_code: string;
-  collection_country_code: string;
-  collection_city: string;
-  delivery_post_code: string;
-  delivery_country_code: string;
-  delivery_city: string;
-  quote_reference: string;
   customer_cost: string;
   franchise_cost: string;
   admin_cost: string;
+  pickup_date: string;
+  delivery_date: string;
   admin_markup: string;
-  reseller_markup: string;
+  franchise_markup: string;
   fuel_surcharge: number;
   vat: number;
+  fuel_franchise_cost?: number;
+  fuel_admin_cost?: number;
+  // Search criteria (read-only, displayed but not saved)
+  searchCriteria?: SearchCriteria;
 };
  
 const Admin = () => {
@@ -46,10 +57,23 @@ const Admin = () => {
   const [backupQuotes, setBackupQuotes] = useState<InputQuoteData[]>([]);
   const [loading, setLoading] = useState(true);
   const [hasChanges, setHasChanges] = useState(false);
+  // Default search criteria (can be updated if needed)
+  const [searchCriteria, setSearchCriteria] = useState<SearchCriteria>({
+    fromCountry: "GB",
+    fromCity: "East Sussex",
+    fromPostCode: "BN27 4BN",
+    toCountry: "DE",
+    toCity: "Karlsruhe",
+    toPostCode: "76131",
+    weight: 6,
+    width: 35,
+    length: 25,
+    height: 25,
+  });
  
   useEffect(() => {
     loadQuotesFromAPI();
-    ensureBackupExists();
+
   }, []);
 
   const loadQuotesFromAPI = async () => {
@@ -66,8 +90,13 @@ const Admin = () => {
       }
 
       const data = await response.json() as InputQuoteData[];
-      setQuotes(data);
-      setBackupQuotes(JSON.parse(JSON.stringify(data))); // Deep copy for backup
+      // Add search criteria to each quote if not present
+      const quotesWithSearchCriteria = data.map(quote => ({
+        ...quote,
+        searchCriteria: quote.searchCriteria || searchCriteria,
+      }));
+      setQuotes(quotesWithSearchCriteria);
+      setBackupQuotes(JSON.parse(JSON.stringify(quotesWithSearchCriteria))); // Deep copy for backup
       setHasChanges(false);
     } catch (e) {
       console.error("Failed to load quotes from API", e);
@@ -80,33 +109,7 @@ const Admin = () => {
       setLoading(false);
     }
   };
- 
-  const ensureBackupExists = async () => {
-    try {
-      const backupRes = await fetch("/backup-input.json?v=" + Date.now());
-      if (!backupRes.ok) {
-        // Backup doesn't exist, create it from current input.json
-        const inputRes = await fetch("/input.json?v=" + Date.now());
-        if (inputRes.ok) {
-          const inputData = await inputRes.json();
-          // Download backup file
-          const backupJsonString = JSON.stringify(inputData, null, 2);
-          const backupBlob = new Blob([backupJsonString], { type: "application/json" });
-          const backupUrl = URL.createObjectURL(backupBlob);
-          const backupLink = document.createElement("a");
-          backupLink.href = backupUrl;
-          backupLink.download = "backup-input.json";
-          document.body.appendChild(backupLink);
-          backupLink.click();
-          document.body.removeChild(backupLink);
-          URL.revokeObjectURL(backupUrl);
-        }
-      }
-    } catch (e) {
-      console.error("Error checking backup", e);
-    }
-  };
- 
+
   const resetFromBackup = async () => {
     if (confirm("Are you sure you want to reset? This will restore input.json from backup-input.json and discard all unsaved changes.")) {
       try {
@@ -123,7 +126,7 @@ const Admin = () => {
  
         const result = await response.json();
        
-        window.location.reload();
+        loadQuotesFromAPI();
  
         toast({
           title: "Reset Successful",
@@ -155,27 +158,20 @@ const Admin = () => {
    
     const newQuote: InputQuoteData = {
       id: newId,
+      quote_reference: `GB_DE_${new Date().toLocaleDateString('en-GB').replace(/\//g, '/')} ${new Date().toLocaleTimeString()}`,
       service_name: "",
       service_type_name: "",
-      no_of_packages: "1",
-      chargeable_weight: "0",
-      pickup_date: "",
-      delivery_date: "",
       category: "standard",
-      collection_post_code: "",
-      collection_country_code: "",
-      collection_city: "",
-      delivery_post_code: "",
-      delivery_country_code: "",
-      delivery_city: "",
-      quote_reference: `GB_DE_${new Date().toLocaleDateString('en-GB').replace(/\//g, '/')} ${new Date().toLocaleTimeString()}`,
       customer_cost: "0",
       franchise_cost: "0",
       admin_cost: "0",
+      pickup_date: "",
+      delivery_date: "",
       admin_markup: "0",
-      reseller_markup: "0",
+      franchise_markup: "0",
       fuel_surcharge: 0.0,
       vat: 0.0,
+      searchCriteria: searchCriteria,
     };
     setQuotes([...quotes, newQuote]);
     setHasChanges(true);
@@ -191,12 +187,15 @@ const Admin = () => {
  
   const saveInputJson = async () => {
     try {
+      // Only send API response fields, exclude searchCriteria
+      const quotesToSave = quotes.map(({ searchCriteria, ...quote }) => quote);
+      
       const response = await fetch(API_ENDPOINTS.SAVE_INPUT, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(quotes),
+        body: JSON.stringify(quotesToSave),
       });
  
       if (!response.ok) {
@@ -329,7 +328,102 @@ const Admin = () => {
               </CardHeader>
               <CardContent>
                 <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                  {/* Basic Info */}
+                  {/* Search Criteria (Read-Only) */}
+                  {quote.searchCriteria && (
+                    <div className="space-y-4">
+                      <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+                        Search Criteria (Read-Only)
+                      </h3>
+                      <div className="space-y-3 rounded-md bg-muted/30 p-3">
+                        <div>
+                          <Label className="text-xs text-muted-foreground">From Country</Label>
+                          <Input
+                            value={quote.searchCriteria.fromCountry}
+                            readOnly
+                            className="bg-muted/50 cursor-not-allowed"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs text-muted-foreground">From City</Label>
+                          <Input
+                            value={quote.searchCriteria.fromCity}
+                            readOnly
+                            className="bg-muted/50 cursor-not-allowed"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs text-muted-foreground">From Post Code</Label>
+                          <Input
+                            value={quote.searchCriteria.fromPostCode}
+                            readOnly
+                            className="bg-muted/50 cursor-not-allowed"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs text-muted-foreground">To Country</Label>
+                          <Input
+                            value={quote.searchCriteria.toCountry}
+                            readOnly
+                            className="bg-muted/50 cursor-not-allowed"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs text-muted-foreground">To City</Label>
+                          <Input
+                            value={quote.searchCriteria.toCity}
+                            readOnly
+                            className="bg-muted/50 cursor-not-allowed"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs text-muted-foreground">To Post Code</Label>
+                          <Input
+                            value={quote.searchCriteria.toPostCode}
+                            readOnly
+                            className="bg-muted/50 cursor-not-allowed"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Weight (kg)</Label>
+                          <Input
+                            type="number"
+                            value={quote.searchCriteria.weight}
+                            readOnly
+                            className="bg-muted/50 cursor-not-allowed"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Width (cm)</Label>
+                          <Input
+                            type="number"
+                            value={quote.searchCriteria.width}
+                            readOnly
+                            className="bg-muted/50 cursor-not-allowed"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Length (cm)</Label>
+                          <Input
+                            type="number"
+                            value={quote.searchCriteria.length}
+                            readOnly
+                            className="bg-muted/50 cursor-not-allowed"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Height (cm)</Label>
+                          <Input
+                            type="number"
+                            value={quote.searchCriteria.height}
+                            readOnly
+                            className="bg-muted/50 cursor-not-allowed"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* API Response Fields - Basic Info */}
                   <div className="space-y-4">
                     <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
                       Basic Information
@@ -350,7 +444,8 @@ const Admin = () => {
                         <Input
                           id={`quote-ref-${quote.id}`}
                           value={quote.quote_reference}
-                          onChange={(e) => updateQuote(quote.id, "quote_reference", e.target.value)}
+                          readOnly
+                          className="bg-muted/50 cursor-not-allowed"
                         />
                       </div>
                       <div>
@@ -358,7 +453,8 @@ const Admin = () => {
                         <Input
                           id={`service-${quote.id}`}
                           value={quote.service_name}
-                          onChange={(e) => updateQuote(quote.id, "service_name", e.target.value)}
+                          readOnly
+                          className="bg-muted/50 cursor-not-allowed"
                         />
                       </div>
                       <div>
@@ -366,105 +462,46 @@ const Admin = () => {
                         <Input
                           id={`type-${quote.id}`}
                           value={quote.service_type_name}
-                          onChange={(e) => updateQuote(quote.id, "service_type_name", e.target.value)}
+                          readOnly
+                          className="bg-muted/50 cursor-not-allowed"
                         />
                       </div>
                       <div>
                         <Label htmlFor={`category-${quote.id}`}>Category</Label>
-                        <Select
+                        <Input
+                          id={`category-${quote.id}`}
                           value={quote.category}
-                          onValueChange={(value) => updateQuote(quote.id, "category", value as InputQuoteData["category"])}
-                        >
-                          <SelectTrigger id={`category-${quote.id}`}>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="standard">Standard</SelectItem>
-                            <SelectItem value="express">Express</SelectItem>
-                            <SelectItem value="dropoff">Drop Off</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div>
-                        <Label htmlFor={`packages-${quote.id}`}>No. of Packages</Label>
-                        <Input
-                          id={`packages-${quote.id}`}
-                          value={quote.no_of_packages}
-                          onChange={(e) => updateQuote(quote.id, "no_of_packages", e.target.value)}
+                          readOnly
+                          className="bg-muted/50 cursor-not-allowed"
                         />
                       </div>
                       <div>
-                        <Label htmlFor={`weight-${quote.id}`}>Chargeable Weight</Label>
+                        <Label htmlFor={`pickup-${quote.id}`}>Pickup Date</Label>
                         <Input
-                          id={`weight-${quote.id}`}
-                          value={quote.chargeable_weight}
-                          onChange={(e) => updateQuote(quote.id, "chargeable_weight", e.target.value)}
+                          id={`pickup-${quote.id}`}
+                          value={quote.pickup_date}
+                          readOnly
+                          className="bg-muted/50 cursor-not-allowed"
+                          placeholder="Mon, 09 Feb 2026\n16:00"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor={`delivery-${quote.id}`}>Delivery Date</Label>
+                        <Input
+                          id={`delivery-${quote.id}`}
+                          value={quote.delivery_date}
+                          readOnly
+                          className="bg-muted/50 cursor-not-allowed"
+                          placeholder="Thu, 12 Feb 2026\nEnd of business day\n23:30"
                         />
                       </div>
                     </div>
                   </div>
- 
-                  {/* Collection & Delivery */}
+
+                  {/* API Response Fields - Pricing */}
                   <div className="space-y-4">
                     <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-                      Collection & Delivery
-                    </h3>
-                    <div className="space-y-3">
-                      <div>
-                        <Label htmlFor={`collection-country-${quote.id}`}>Collection Country Code</Label>
-                        <Input
-                          id={`collection-country-${quote.id}`}
-                          value={quote.collection_country_code}
-                          onChange={(e) => updateQuote(quote.id, "collection_country_code", e.target.value)}
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor={`collection-city-${quote.id}`}>Collection City</Label>
-                        <Input
-                          id={`collection-city-${quote.id}`}
-                          value={quote.collection_city}
-                          onChange={(e) => updateQuote(quote.id, "collection_city", e.target.value)}
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor={`collection-post-${quote.id}`}>Collection Post Code</Label>
-                        <Input
-                          id={`collection-post-${quote.id}`}
-                          value={quote.collection_post_code}
-                          onChange={(e) => updateQuote(quote.id, "collection_post_code", e.target.value)}
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor={`delivery-country-${quote.id}`}>Delivery Country Code</Label>
-                        <Input
-                          id={`delivery-country-${quote.id}`}
-                          value={quote.delivery_country_code}
-                          onChange={(e) => updateQuote(quote.id, "delivery_country_code", e.target.value)}
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor={`delivery-city-${quote.id}`}>Delivery City</Label>
-                        <Input
-                          id={`delivery-city-${quote.id}`}
-                          value={quote.delivery_city}
-                          onChange={(e) => updateQuote(quote.id, "delivery_city", e.target.value)}
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor={`delivery-post-${quote.id}`}>Delivery Post Code</Label>
-                        <Input
-                          id={`delivery-post-${quote.id}`}
-                          value={quote.delivery_post_code}
-                          onChange={(e) => updateQuote(quote.id, "delivery_post_code", e.target.value)}
-                        />
-                      </div>
-                    </div>
-                  </div>
- 
-                  {/* Pricing & Dates */}
-                  <div className="space-y-4">
-                    <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-                      Pricing & Dates
+                      Pricing
                     </h3>
                     <div className="space-y-3">
                       <div>
@@ -472,7 +509,8 @@ const Admin = () => {
                         <Input
                           id={`customer-cost-${quote.id}`}
                           value={quote.customer_cost}
-                          onChange={(e) => updateQuote(quote.id, "customer_cost", e.target.value)}
+                          readOnly
+                          className="bg-muted/50 cursor-not-allowed"
                         />
                       </div>
                       <div>
@@ -480,7 +518,8 @@ const Admin = () => {
                         <Input
                           id={`franchise-cost-${quote.id}`}
                           value={quote.franchise_cost}
-                          onChange={(e) => updateQuote(quote.id, "franchise_cost", e.target.value)}
+                          readOnly
+                          className="bg-muted/50 cursor-not-allowed"
                         />
                       </div>
                       <div>
@@ -488,7 +527,8 @@ const Admin = () => {
                         <Input
                           id={`admin-cost-${quote.id}`}
                           value={quote.admin_cost}
-                          onChange={(e) => updateQuote(quote.id, "admin_cost", e.target.value)}
+                          readOnly
+                          className="bg-muted/50 cursor-not-allowed"
                         />
                       </div>
                       <div>
@@ -500,11 +540,11 @@ const Admin = () => {
                         />
                       </div>
                       <div>
-                        <Label htmlFor={`reseller-markup-${quote.id}`}>Reseller Markup</Label>
+                        <Label htmlFor={`franchise-markup-${quote.id}`}>Franchise Markup</Label>
                         <Input
-                          id={`reseller-markup-${quote.id}`}
-                          value={quote.reseller_markup}
-                          onChange={(e) => updateQuote(quote.id, "reseller_markup", e.target.value)}
+                          id={`franchise-markup-${quote.id}`}
+                          value={quote.franchise_markup}
+                          onChange={(e) => updateQuote(quote.id, "franchise_markup", e.target.value)}
                         />
                       </div>
                       <div>
@@ -514,7 +554,30 @@ const Admin = () => {
                           type="number"
                           step="0.01"
                           value={quote.fuel_surcharge}
-                          onChange={(e) => updateQuote(quote.id, "fuel_surcharge", parseFloat(e.target.value) || 0)}
+                          readOnly
+                          className="bg-muted/50 cursor-not-allowed"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor={`fuel-franchise-cost-${quote.id}`}>Fuel Franchise Cost</Label>
+                        <Input
+                          id={`fuel-franchise-cost-${quote.id}`}
+                          type="number"
+                          step="0.01"
+                          value={quote.fuel_franchise_cost ?? 0}
+                          readOnly
+                          className="bg-muted/50 cursor-not-allowed"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor={`fuel-admin-cost-${quote.id}`}>Fuel Admin Cost</Label>
+                        <Input
+                          id={`fuel-admin-cost-${quote.id}`}
+                          type="number"
+                          step="0.01"
+                          value={quote.fuel_admin_cost ?? 0}
+                          readOnly
+                          className="bg-muted/50 cursor-not-allowed"
                         />
                       </div>
                       <div>
@@ -524,25 +587,8 @@ const Admin = () => {
                           type="number"
                           step="0.01"
                           value={quote.vat}
-                          onChange={(e) => updateQuote(quote.id, "vat", parseFloat(e.target.value) || 0)}
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor={`pickup-${quote.id}`}>Pickup Date</Label>
-                        <Input
-                          id={`pickup-${quote.id}`}
-                          value={quote.pickup_date}
-                          onChange={(e) => updateQuote(quote.id, "pickup_date", e.target.value)}
-                          placeholder="Mon, 09 Feb 2026\n16:00"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor={`delivery-${quote.id}`}>Delivery Date</Label>
-                        <Input
-                          id={`delivery-${quote.id}`}
-                          value={quote.delivery_date}
-                          onChange={(e) => updateQuote(quote.id, "delivery_date", e.target.value)}
-                          placeholder="Thu, 12 Feb 2026\nEnd of business day\n23:30"
+                          readOnly
+                          className="bg-muted/50 cursor-not-allowed"
                         />
                       </div>
                     </div>

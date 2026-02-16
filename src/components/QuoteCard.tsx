@@ -26,8 +26,8 @@ const DateDisplay = ({ date, label }: { date: string; label: string }) => {
 const QuoteCard = ({ quote }: QuoteCardProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
   
-  // Check if optimized_customer_cost (basePrice) is different from customer_cost (oldBasePrice)
-  const hasPriceDifference = Math.abs(quote.pricing.basePrice - quote.oldBasePrice) > 0.01;
+  // Check if Total is different from Old Total (for highlighting the Additional Details button)
+  const hasPriceDifference = Math.abs(quote.totalPrice - quote.oldTotal) > 0.01;
 
   return (
     <Card className="border-border/60 shadow-md transition-shadow hover:shadow-lg">
@@ -91,6 +91,18 @@ const QuoteCard = ({ quote }: QuoteCardProps) => {
                 <span className="font-medium">£{quote.oldBasePrice.toFixed(2)}</span>
               </div>
               <div className="flex justify-between">
+                <span className="text-muted-foreground">Old Fuel Surcharge</span>
+                <span className="font-medium">£{quote.oldFuelSurcharge.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Old VAT</span>
+                <span className="font-medium">£{quote.oldVat.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between border-t border-border/40 pt-1 mt-1">
+                <span className="text-muted-foreground font-semibold">Old Total</span>
+                <span className="font-semibold">£{quote.oldTotal.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between pt-1">
                 <span className="text-muted-foreground">Increased Profit</span>
                 <span className="font-medium text-green-600">£{quote.increasedProfit.toFixed(2)}</span>
               </div>
